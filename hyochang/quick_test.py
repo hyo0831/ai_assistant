@@ -88,9 +88,9 @@ def test_gemini_api():
     try:
         import google.generativeai as genai
 
-        api_key = os.environ.get("GEMINI_API_KEY", "YOUR_API_KEY_HERE")
+        api_key = os.environ.get("GEMINI_API_KEY")
 
-        if api_key == "YOUR_API_KEY_HERE":
+        if not api_key:
             print("  [SKIP] Skipping (API key not set)")
             return False
 
