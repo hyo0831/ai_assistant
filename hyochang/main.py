@@ -18,6 +18,7 @@ import json
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from system_prompt import WILLIAM_ONEIL_ENHANCED_PERSONA
+from feedback_manager import FeedbackManager, collect_feedback
 
 # ====================================================================
 # CONFIGURATION
@@ -169,7 +170,8 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
 # STEP 3: AI 분석 실행 함수 (Execution)
 # ====================================================================
 
-def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = None) -> str:
+def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = None,
+                              feedback_manager: FeedbackManager = None) -> str:
     """
     Gemini 1.5 Flash를 사용하여 차트 분석
 
@@ -177,6 +179,7 @@ def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = N
         image_path: 차트 이미지 경로
         ticker: 종목 코드
         df: OHLCV 데이터프레임 (정확한 날짜/가격 정보 제공)
+        feedback_manager: 피드백 매니저 (과거 학습 데이터 활용)
 
     Returns:
         AI 분석 결과 텍스트
@@ -220,10 +223,16 @@ IMPORTANT DATA CONTEXT (for accurate date/price reference):
 Use these exact dates and prices in your analysis for accuracy.
 """
 
+    # 과거 피드백 컨텍스트 추가 (학습)
+    feedback_context = ""
+    if feedback_manager:
+        feedback_context = feedback_manager.get_feedback_context(ticker)
+
     # 분석 요청 프롬프트
     analysis_prompt = f"""
 Analyze this WEEKLY stock chart for {ticker}.
 {data_summary}
+{feedback_context}
 
 IMPORTANT: This is a WEEKLY chart, not a daily chart. Each candle represents one week of trading.
 When analyzing patterns, use weekly timeframes (e.g., "Cup with Handle" should be 7-65 weeks, not days).
@@ -595,8 +604,9 @@ def main(ticker: str):
         # Step 3: 기본 차트 생성 (AI 분석용)
         create_oneil_chart(ticker, df, interval=interval)
 
-        # Step 4: AI 분석 (데이터프레임 함께 전달)
-        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df)
+        # Step 4: AI 분석 (데이터프레임 + 피드백 매니저 전달)
+        feedback_manager = FeedbackManager()
+        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df, feedback_manager)
 
         # Step 5: 패턴 데이터 추출 (주석 처리 - 패턴 그리기 어려움)
         # pattern_data = parse_pattern_data(analysis)
@@ -623,6 +633,25 @@ def main(ticker: str):
         #     print(f"Annotated chart (with pattern overlay): {final_chart}")
         print("=" * 80)
 
+        # Step 7: 피드백 수집 (선택사항)
+        # JSON에서 verdict 추출
+        try:
+            verdict_match = re.search(r'"verdict":\s*"([^"]+)"', analysis)
+            verdict = verdict_match.group(1) if verdict_match else "UNKNOWN"
+        except:
+            verdict = "UNKNOWN"
+
+        feedback_data = collect_feedback(ticker, analysis, verdict)
+        if feedback_data:
+            feedback_manager.save_feedback(
+                ticker=feedback_data["ticker"],
+                analysis=feedback_data["analysis"],
+                verdict=feedback_data["verdict"],
+                rating=feedback_data["rating"],
+                comment=feedback_data["comment"]
+            )
+            print(f"[✓] 피드백이 저장되었습니다. AI가 다음 분석에서 학습합니다!")
+
     except Exception as e:
         print(f"[ERROR] {e}")
         raise
@@ -638,6 +667,6 @@ if __name__ == "__main__":
     # 미국 주식: "AAPL", "TSLA", "NVDA", "MSFT"
     # 한국 주식: "005930.KS" (삼성전자), "000660.KS" (SK하이닉스)
 
-    TICKER = "ORCL"  # Oracle Corporation
+    TICKER = "IREN"  # Iris Energy
 
     main(TICKER)
