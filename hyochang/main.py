@@ -169,13 +169,14 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
 # STEP 3: AI 분석 실행 함수 (Execution)
 # ====================================================================
 
-def analyze_chart_with_gemini(image_path: str, ticker: str) -> str:
+def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = None) -> str:
     """
     Gemini 1.5 Flash를 사용하여 차트 분석
 
     Args:
         image_path: 차트 이미지 경로
         ticker: 종목 코드
+        df: OHLCV 데이터프레임 (정확한 날짜/가격 정보 제공)
 
     Returns:
         AI 분석 결과 텍스트
@@ -194,9 +195,35 @@ def analyze_chart_with_gemini(image_path: str, ticker: str) -> str:
     # 이미지 로드
     image = Image.open(image_path)
 
+    # 데이터 요약 정보 생성 (정확한 날짜/가격 제공)
+    data_summary = ""
+    if df is not None and not df.empty:
+        recent_data = df.tail(52)  # 최근 1년 (52주) 데이터
+
+        # 최고가/최저가 정보
+        max_idx = recent_data['High'].idxmax()
+        min_idx = recent_data['Low'].idxmin()
+        current_price = df.iloc[-1]['Close']
+        current_date = df.index[-1].strftime('%Y-%m-%d')
+
+        data_summary = f"""
+
+IMPORTANT DATA CONTEXT (for accurate date/price reference):
+- Current Date: {current_date}
+- Current Price: ${current_price:.2f}
+- Recent 52-week High: ${recent_data.loc[max_idx, 'High']:.2f} on {max_idx.strftime('%Y-%m-%d')}
+- Recent 52-week Low: ${recent_data.loc[min_idx, 'Low']:.2f} on {min_idx.strftime('%Y-%m-%d')}
+- Data Period: {df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')} ({len(df)} weeks total)
+- 10-week MA: ${df.iloc[-1]['MA50']:.2f}
+- 40-week MA: ${df.iloc[-1]['MA200']:.2f}
+
+Use these exact dates and prices in your analysis for accuracy.
+"""
+
     # 분석 요청 프롬프트
     analysis_prompt = f"""
 Analyze this WEEKLY stock chart for {ticker}.
+{data_summary}
 
 IMPORTANT: This is a WEEKLY chart, not a daily chart. Each candle represents one week of trading.
 When analyzing patterns, use weekly timeframes (e.g., "Cup with Handle" should be 7-65 weeks, not days).
@@ -568,8 +595,8 @@ def main(ticker: str):
         # Step 3: 기본 차트 생성 (AI 분석용)
         create_oneil_chart(ticker, df, interval=interval)
 
-        # Step 4: AI 분석
-        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker)
+        # Step 4: AI 분석 (데이터프레임 함께 전달)
+        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df)
 
         # Step 5: 패턴 데이터 추출 (주석 처리 - 패턴 그리기 어려움)
         # pattern_data = parse_pattern_data(analysis)
@@ -611,6 +638,6 @@ if __name__ == "__main__":
     # 미국 주식: "AAPL", "TSLA", "NVDA", "MSFT"
     # 한국 주식: "005930.KS" (삼성전자), "000660.KS" (SK하이닉스)
 
-    TICKER = "AAPL"  # 이곳에 분석하고 싶은 종목 코드 입력
+    TICKER = "ORCL"  # Oracle Corporation
 
     main(TICKER)
