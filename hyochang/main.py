@@ -628,16 +628,16 @@ def main(ticker: str):
         # Step 4: AI 분석
         analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker)
 
-        # Step 5: 패턴 데이터 추출
-        pattern_data = parse_pattern_data(analysis)
+        # Step 5: 패턴 데이터 추출 (주석 처리 - 패턴 그리기 어려움)
+        # pattern_data = parse_pattern_data(analysis)
 
-        # Step 6: 패턴이 표시된 차트 생성
-        if pattern_data:
-            annotated_chart_path = "chart_annotated.png"
-            create_annotated_chart(ticker, df, pattern_data, annotated_chart_path, interval)
-            final_chart = annotated_chart_path
-        else:
-            final_chart = CHART_OUTPUT_PATH
+        # Step 6: 패턴이 표시된 차트 생성 (주석 처리)
+        # if pattern_data:
+        #     annotated_chart_path = "chart_annotated.png"
+        #     create_annotated_chart(ticker, df, pattern_data, annotated_chart_path, interval)
+        #     final_chart = annotated_chart_path
+        # else:
+        #     final_chart = CHART_OUTPUT_PATH
 
         # 결과 출력
         print()
@@ -648,9 +648,9 @@ def main(ticker: str):
         print(analysis)
         print()
         print("=" * 80)
-        print(f"Basic chart: {CHART_OUTPUT_PATH}")
-        if pattern_data:
-            print(f"Annotated chart (with pattern overlay): {final_chart}")
+        print(f"Chart saved: {CHART_OUTPUT_PATH}")
+        # if pattern_data:
+        #     print(f"Annotated chart (with pattern overlay): {final_chart}")
         print("=" * 80)
 
     except Exception as e:
