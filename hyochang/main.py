@@ -85,7 +85,8 @@ def calculate_moving_averages(df: pd.DataFrame, short_window: int = 10, long_win
     return df
 
 
-def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_OUTPUT_PATH, interval: str = "1wk"):
+def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_OUTPUT_PATH,
+                       interval: str = "1wk", pattern_result: dict = None):
     """
     윌리엄 오닐 스타일 차트 생성 및 저장
 
@@ -95,12 +96,14 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
        일봉: 50일/200일 이동평균선
     3. 거래량 바 (상승=빨강, 하락=파랑)
     4. 깔끔한 Yahoo 스타일
+    5. (V2) 피벗 포인트 및 손절가 표시
 
     Args:
         ticker: 종목 코드
         df: OHLCV + MA 데이터프레임
         output_path: 저장 경로
         interval: 차트 간격 ('1wk', '1d', '1mo')
+        pattern_result: 패턴 감지 결과 (V2 모드에서 전달)
     """
     print(f"[*] Creating William O'Neil style chart...")
 
@@ -130,12 +133,35 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
         }
     )
 
-    # 차트 생성 및 저장
-    mpf.plot(
+    # 패턴 정보 추출 (V2)
+    best_pattern = pattern_result.get('best_pattern') if pattern_result else None
+    has_pattern = best_pattern is not None
+
+    # 차트 제목
+    if has_pattern:
+        title = f'\n{ticker} - Weekly Chart | {best_pattern["type"]} (Quality: {best_pattern.get("quality_score", 0)}/100)'
+    else:
+        title = f'\n{ticker} - William O\'Neil Style Weekly Chart Analysis'
+
+    # 피벗/손절 수평선 설정
+    hlines_dict = None
+    if has_pattern:
+        pivot = best_pattern.get('pivot_point', 0)
+        stop_loss = round(pivot * 0.92, 2)  # 8% below pivot
+
+        hlines_dict = dict(
+            hlines=[pivot, stop_loss],
+            colors=['green', 'red'],
+            linestyle=['--', '--'],
+            linewidths=[2, 1.5]
+        )
+
+    # 차트 생성 (returnfig=True로 추가 어노테이션 가능)
+    fig, axes = mpf.plot(
         df,
         type='candle',
         style=style,
-        title=f'\n{ticker} - William O\'Neil Style Weekly Chart Analysis',
+        title=title,
         ylabel='Price',
         ylabel_lower='Volume',
         volume=True,
@@ -144,13 +170,38 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
         volume_panel=1,
         panel_ratios=(3, 1),
         tight_layout=True,
-        savefig=dict(
-            fname=output_path,
-            dpi=150,
-            bbox_inches='tight'
-        ),
-        returnfig=False
+        hlines=hlines_dict,
+        returnfig=True
     )
+
+    # 피벗/손절 레이블 추가
+    if has_pattern:
+        ax = axes[0]
+        pivot = best_pattern.get('pivot_point', 0)
+        stop_loss = round(pivot * 0.92, 2)
+
+        # 오른쪽 끝에 레이블 표시
+        x_pos = len(df) - 1
+
+        ax.annotate(
+            f'Pivot: ${pivot:.2f}',
+            xy=(x_pos, pivot),
+            fontsize=9, fontweight='bold', color='green',
+            ha='right', va='bottom',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='green', alpha=0.9)
+        )
+
+        ax.annotate(
+            f'Stop Loss: ${stop_loss:.2f} (-8%)',
+            xy=(x_pos, stop_loss),
+            fontsize=9, fontweight='bold', color='red',
+            ha='right', va='top',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='red', alpha=0.9)
+        )
+
+    # 저장
+    fig.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close(fig)
 
     print(f"[OK] Chart saved to: {output_path}")
 
@@ -780,8 +831,8 @@ def main_v2(ticker: str):
         print("-" * 60)
         print()
 
-        # Step 4: 기본 차트 생성
-        create_oneil_chart(ticker, df, interval=interval)
+        # Step 4: 차트 생성 (패턴 데이터 포함 → 피벗/손절 표시)
+        create_oneil_chart(ticker, df, interval=interval, pattern_result=pattern_result)
 
         # Step 5: V2 AI 분석 (코드 감지 결과 + 차트 이미지)
         feedback_manager = FeedbackManager()
