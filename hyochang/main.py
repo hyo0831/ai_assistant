@@ -90,7 +90,7 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
     윌리엄 오닐 스타일 차트 생성 및 저장
 
     핵심 스타일 요소:
-    1. Log Scale (로그 스케일) - 변화율 중시
+    1. Linear Scale (선형 스케일) - 가격 직관적 표시
     2. 주봉: 10주/40주 이동평균선 (O'Neil의 핵심 지표)
        일봉: 50일/200일 이동평균선
     3. 거래량 바 (상승=빨강, 하락=파랑)
@@ -136,12 +136,11 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
         type='candle',
         style=style,
         title=f'\n{ticker} - William O\'Neil Style Weekly Chart Analysis',
-        ylabel='Price (Log Scale)',
+        ylabel='Price',
         ylabel_lower='Volume',
         volume=True,
         addplot=apds,
         figsize=(16, 10),
-        yscale='log',  # 로그 스케일 (핵심!)
         volume_panel=1,
         panel_ratios=(3, 1),
         tight_layout=True,
@@ -403,12 +402,11 @@ def create_annotated_chart(ticker: str, df: pd.DataFrame, pattern_data: dict,
         type='candle',
         style=style,
         title=title_text,
-        ylabel='Price (Log Scale)',
+        ylabel='Price',
         ylabel_lower='Volume',
         volume=True,
         addplot=apds,
         figsize=(16, 10),
-        yscale='log',
         volume_panel=1,
         panel_ratios=(3, 1),
         tight_layout=True,
