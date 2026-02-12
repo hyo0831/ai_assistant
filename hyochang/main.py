@@ -1,9 +1,5 @@
 """
 윌리엄 오닐 페르소나 투자 어시스턴트 (William O'Neil AI Investment Assistant)
-Google Gemini 1.5 Flash 모델을 활용한 차트 분석 MVP
-
-Required Installation:
-pip install yfinance mplfinance google-generativeai pandas pillow
 """
 
 import os
@@ -19,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from system_prompt import WILLIAM_ONEIL_ENHANCED_PERSONA
 from feedback_manager import FeedbackManager, collect_feedback
+from pattern_detector import run_pattern_detection
+from version import VERSION, VERSION_NAME
 
 # ====================================================================
 # CONFIGURATION
@@ -88,12 +86,13 @@ def calculate_moving_averages(df: pd.DataFrame, short_window: int = 10, long_win
     return df
 
 
-def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_OUTPUT_PATH, interval: str = "1wk"):
+def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_OUTPUT_PATH,
+                       interval: str = "1wk"):
     """
     윌리엄 오닐 스타일 차트 생성 및 저장
 
     핵심 스타일 요소:
-    1. Log Scale (로그 스케일) - 변화율 중시
+    1. Linear Scale (선형 스케일) - 가격 직관적 표시
     2. 주봉: 10주/40주 이동평균선 (O'Neil의 핵심 지표)
        일봉: 50일/200일 이동평균선
     3. 거래량 바 (상승=빨강, 하락=파랑)
@@ -139,12 +138,11 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
         type='candle',
         style=style,
         title=f'\n{ticker} - William O\'Neil Style Weekly Chart Analysis',
-        ylabel='Price (Log Scale)',
+        ylabel='Price',
         ylabel_lower='Volume',
         volume=True,
         addplot=apds,
         figsize=(16, 10),
-        yscale='log',  # 로그 스케일 (핵심!)
         volume_panel=1,
         panel_ratios=(3, 1),
         tight_layout=True,
@@ -406,12 +404,11 @@ def create_annotated_chart(ticker: str, df: pd.DataFrame, pattern_data: dict,
         type='candle',
         style=style,
         title=title_text,
-        ylabel='Price (Log Scale)',
+        ylabel='Price',
         ylabel_lower='Volume',
         volume=True,
         addplot=apds,
         figsize=(16, 10),
-        yscale='log',
         volume_panel=1,
         panel_ratios=(3, 1),
         tight_layout=True,
@@ -575,18 +572,19 @@ def create_annotated_chart(ticker: str, df: pd.DataFrame, pattern_data: dict,
 
 
 # ====================================================================
-# MAIN EXECUTION
+# MAIN EXECUTION — V1 (기본: AI 이미지 분석만)
 # ====================================================================
 
-def main(ticker: str):
+def main_v1(ticker: str):
     """
-    메인 실행 함수
+    V1 메인 실행 함수 (기존 버전)
+    AI가 차트 이미지를 직접 보고 분석
 
     Args:
         ticker: 분석할 종목 코드
     """
     print("=" * 80)
-    print("WILLIAM O'NEIL AI INVESTMENT ASSISTANT")
+    print("WILLIAM O'NEIL AI INVESTMENT ASSISTANT [V1 - Basic]")
     print("=" * 80)
     print(f"Target: {ticker}")
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -608,49 +606,11 @@ def main(ticker: str):
         feedback_manager = FeedbackManager()
         analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df, feedback_manager)
 
-        # Step 5: 패턴 데이터 추출 (주석 처리 - 패턴 그리기 어려움)
-        # pattern_data = parse_pattern_data(analysis)
-
-        # Step 6: 패턴이 표시된 차트 생성 (주석 처리)
-        # if pattern_data:
-        #     annotated_chart_path = "chart_annotated.png"
-        #     create_annotated_chart(ticker, df, pattern_data, annotated_chart_path, interval)
-        #     final_chart = annotated_chart_path
-        # else:
-        #     final_chart = CHART_OUTPUT_PATH
-
         # 결과 출력
-        print()
-        print("=" * 80)
-        print("ANALYSIS RESULT")
-        print("=" * 80)
-        print()
-        print(analysis)
-        print()
-        print("=" * 80)
-        print(f"Chart saved: {CHART_OUTPUT_PATH}")
-        # if pattern_data:
-        #     print(f"Annotated chart (with pattern overlay): {final_chart}")
-        print("=" * 80)
+        _print_analysis_result(analysis)
 
-        # Step 7: 피드백 수집 (선택사항)
-        # JSON에서 verdict 추출
-        try:
-            verdict_match = re.search(r'"verdict":\s*"([^"]+)"', analysis)
-            verdict = verdict_match.group(1) if verdict_match else "UNKNOWN"
-        except:
-            verdict = "UNKNOWN"
-
-        feedback_data = collect_feedback(ticker, analysis, verdict)
-        if feedback_data:
-            feedback_manager.save_feedback(
-                ticker=feedback_data["ticker"],
-                analysis=feedback_data["analysis"],
-                verdict=feedback_data["verdict"],
-                rating=feedback_data["rating"],
-                comment=feedback_data["comment"]
-            )
-            print(f"[✓] 피드백이 저장되었습니다. AI가 다음 분석에서 학습합니다!")
+        # 피드백 수집
+        _collect_and_save_feedback(ticker, analysis, feedback_manager)
 
     except Exception as e:
         print(f"[ERROR] {e}")
@@ -658,15 +618,262 @@ def main(ticker: str):
 
 
 # ====================================================================
-# ENTRY POINT
+# MAIN EXECUTION — V2 (향상: 코드 패턴 감지 + AI 해석)
+# ====================================================================
+
+def analyze_chart_v2(image_path: str, ticker: str, df: pd.DataFrame,
+                     pattern_result: dict,
+                     feedback_manager: FeedbackManager = None) -> str:
+    """
+    V2: 코드 기반 패턴 감지 결과를 AI에게 전달하여 해석
+
+    Args:
+        image_path: 차트 이미지 경로
+        ticker: 종목 코드
+        df: OHLCV 데이터프레임
+        pattern_result: pattern_detector.run_pattern_detection() 결과
+        feedback_manager: 피드백 매니저
+
+    Returns:
+        AI 분석 결과 텍스트
+    """
+    print(f"[*] V2: Analyzing with code-detected patterns + AI interpretation...")
+
+    genai.configure(api_key=GEMINI_API_KEY)
+
+    model = genai.GenerativeModel(
+        model_name='gemini-2.5-flash',
+        system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA
+    )
+
+    image = Image.open(image_path)
+
+    # 데이터 요약 정보
+    data_summary = ""
+    if df is not None and not df.empty:
+        recent_data = df.tail(52)
+        max_idx = recent_data['High'].idxmax()
+        min_idx = recent_data['Low'].idxmin()
+        current_price = df.iloc[-1]['Close']
+        current_date = df.index[-1].strftime('%Y-%m-%d')
+
+        data_summary = f"""
+IMPORTANT DATA CONTEXT (for accurate date/price reference):
+- Current Date: {current_date}
+- Current Price: ${current_price:.2f}
+- Recent 52-week High: ${recent_data.loc[max_idx, 'High']:.2f} on {max_idx.strftime('%Y-%m-%d')}
+- Recent 52-week Low: ${recent_data.loc[min_idx, 'Low']:.2f} on {min_idx.strftime('%Y-%m-%d')}
+- Data Period: {df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')} ({len(df)} weeks total)
+- 10-week MA: ${df.iloc[-1]['MA50']:.2f}
+- 40-week MA: ${df.iloc[-1]['MA200']:.2f}
+"""
+
+    # 코드 기반 패턴 감지 결과
+    pattern_summary = pattern_result.get('summary', 'No pattern detection results available.')
+
+    # 피드백 컨텍스트
+    feedback_context = ""
+    if feedback_manager:
+        feedback_context = feedback_manager.get_feedback_context(ticker)
+
+    # V2 분석 프롬프트 (코드 감지 결과를 참고하도록)
+    analysis_prompt = f"""
+Analyze this WEEKLY stock chart for {ticker}.
+
+{data_summary}
+
+## CODE-BASED PATTERN DETECTION RESULTS
+The following patterns and metrics were detected by our automated pattern detection engine.
+Use these results as quantitative reference data to support your visual analysis of the chart.
+If the code detection and your visual analysis conflict, explain the discrepancy.
+
+{pattern_summary}
+
+{feedback_context}
+
+IMPORTANT: This is a WEEKLY chart. Each candle = one week of trading.
+
+Based on BOTH the chart image AND the code-detected pattern data above, provide your analysis:
+
+## CHART ANALYSIS: {ticker}
+
+### 1. Trend Status
+[Analyze using moving averages. Is stock above/below 10-week and 40-week MA?]
+
+### 2. Pattern Recognition
+[Evaluate the code-detected pattern. Do you agree with the detection? Is the pattern valid per O'Neil's criteria?
+If code detected a pattern, assess its quality. If no pattern was detected, explain what you see.]
+
+### 3. Volume Behavior
+[Use both the chart and the code-detected volume analysis. Are accumulation/distribution days concerning?]
+
+### 4. Buy Point & Entry
+[Use the code-detected pivot point as reference. Is the stock at, near, or far from the buy point?
+Current price vs. pivot point relationship.]
+
+### 5. Risk Management
+[Stop-loss level (7-8% below buy point). Risk/reward ratio.]
+
+### 6. Pattern Quality & Faults
+[Address any faults detected by the code. Are they valid concerns?
+What is the base stage and what does it mean for risk?]
+
+### 7. FINAL VERDICT
+[BUY NOW / WATCH & WAIT / AVOID — with specific reasoning integrating both code data and chart analysis]
+
+---
+Be specific with price levels and percentages. Give your honest professional opinion.
+"""
+
+    response = model.generate_content([analysis_prompt, image])
+
+    print("[OK] V2 Analysis complete!")
+
+    clean_text = re.sub(r'[^\x00-\x7F\n\r\t가-힣]', '', response.text)
+    return clean_text
+
+
+def main_v2(ticker: str):
+    """
+    V2 메인 실행 함수 (향상 버전)
+    코드 기반 패턴 감지 → AI가 결과를 해석
+
+    Args:
+        ticker: 분석할 종목 코드
+    """
+    print("=" * 80)
+    print("WILLIAM O'NEIL AI INVESTMENT ASSISTANT [V2 - Enhanced Pattern Detection]")
+    print("=" * 80)
+    print(f"Target: {ticker}")
+    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 80)
+    print()
+
+    try:
+        # Step 1: 데이터 다운로드 (주봉, 3년치)
+        interval = "1wk"
+        df = fetch_stock_data(ticker, period="3y", interval=interval)
+
+        # Step 2: 이동평균선 계산 (주봉: 10주, 40주)
+        df = calculate_moving_averages(df, short_window=10, long_window=40)
+
+        # Step 3: 코드 기반 패턴 감지 실행
+        print()
+        pattern_result = run_pattern_detection(df)
+        print()
+
+        # 코드 감지 결과 미리보기 출력
+        print("-" * 60)
+        print("CODE DETECTION PREVIEW:")
+        print("-" * 60)
+        if pattern_result['best_pattern']:
+            bp = pattern_result['best_pattern']
+            print(f"  Pattern: {bp['type']}")
+            print(f"  Quality: {bp.get('quality_score', 0)}/100")
+            print(f"  Pivot Point: ${bp.get('pivot_point', 0):.2f}")
+            if pattern_result['pattern_faults']:
+                print(f"  Faults: {len(pattern_result['pattern_faults'])}")
+                for f in pattern_result['pattern_faults']:
+                    print(f"    - {f}")
+        else:
+            print("  No clear pattern detected")
+        print(f"  Base Stage: {pattern_result['base_stage'].get('estimated_stage', 'N/A')}")
+        print(f"  Volume Trend: {pattern_result['volume_analysis'].get('recent_volume_trend', 'N/A')}")
+        print("-" * 60)
+        print()
+
+        # Step 4: 차트 생성
+        create_oneil_chart(ticker, df, interval=interval)
+
+        # Step 5: V2 AI 분석 (코드 감지 결과 + 차트 이미지)
+        feedback_manager = FeedbackManager()
+        analysis = analyze_chart_v2(
+            CHART_OUTPUT_PATH, ticker, df, pattern_result, feedback_manager
+        )
+
+        # 결과 출력
+        _print_analysis_result(analysis)
+
+        # 피드백 수집
+        _collect_and_save_feedback(ticker, analysis, feedback_manager)
+
+    except Exception as e:
+        print(f"[ERROR] {e}")
+        raise
+
+
+# ====================================================================
+# 공통 유틸리티 함수
+# ====================================================================
+
+def _print_analysis_result(analysis: str):
+    """분석 결과 출력"""
+    print()
+    print("=" * 80)
+    print("ANALYSIS RESULT")
+    print("=" * 80)
+    print()
+    print(analysis)
+    print()
+    print("=" * 80)
+    print(f"Chart saved: {CHART_OUTPUT_PATH}")
+    print("=" * 80)
+
+
+def _collect_and_save_feedback(ticker: str, analysis: str, feedback_manager: FeedbackManager):
+    """피드백 수집 및 저장"""
+    try:
+        verdict_match = re.search(r'"verdict":\s*"([^"]+)"', analysis)
+        if not verdict_match:
+            verdict_match = re.search(r'(?:FINAL VERDICT|Verdict)[:\s]*(BUY NOW|WATCH & WAIT|AVOID)', analysis)
+        verdict = verdict_match.group(1) if verdict_match else "UNKNOWN"
+    except Exception:
+        verdict = "UNKNOWN"
+
+    feedback_data = collect_feedback(ticker, analysis, verdict)
+    if feedback_data:
+        feedback_manager.save_feedback(
+            ticker=feedback_data["ticker"],
+            analysis=feedback_data["analysis"],
+            verdict=feedback_data["verdict"],
+            rating=feedback_data["rating"],
+            comment=feedback_data["comment"]
+        )
+        print(f"[OK] Feedback saved! AI will learn from it in next analysis.")
+
+
+# ====================================================================
+# ENTRY POINT — 모드 선택
 # ====================================================================
 
 if __name__ == "__main__":
-    # 예시: Apple Inc. 분석
-    # 다른 종목 분석 시 티커만 변경하면 됩니다
-    # 미국 주식: "AAPL", "TSLA", "NVDA", "MSFT"
-    # 한국 주식: "005930.KS" (삼성전자), "000660.KS" (SK하이닉스)
+    print()
+    print("=" * 80)
+    print(f"  WILLIAM O'NEIL AI INVESTMENT ASSISTANT  v{VERSION}")
+    print("=" * 80)
+    print()
+    print("  [1] V1 - Basic (AI image analysis only)")
+    print("      AI가 차트 이미지를 직접 보고 분석합니다.")
+    print()
+    print("  [2] V2 - Enhanced (Code pattern detection + AI interpretation)")
+    print("      코드가 패턴을 먼저 감지한 후, AI가 결과를 해석합니다.")
+    print("      더 정확한 수치 기반 분석을 제공합니다.")
+    print()
+    print("=" * 80)
 
-    TICKER = "AAPL"  # Apple Inc - 테스트
+    mode = input("  Select mode (1 or 2): ").strip()
+    if mode not in ('1', '2'):
+        print("  Invalid selection. Defaulting to V2.")
+        mode = '2'
 
-    main(TICKER)
+    ticker = input("  Enter ticker symbol (e.g., AAPL): ").strip().upper()
+    if not ticker:
+        ticker = "AAPL"
+        print(f"  No ticker entered. Using default: {ticker}")
+
+    print()
+
+    if mode == '1':
+        main_v1(ticker)
+    else:
+        main_v2(ticker)

@@ -1,231 +1,141 @@
-# Mac에서 실행하기 🍎
+# William O'Neil AI Investment Assistant - Mac
 
-## 📋 사전 준비사항
+## Quick Start
 
-### 1. Python 설치 확인
-```bash
-python3 --version
-```
-Python 3.14.2 이상이 설치되어 있어야 합니다.
-
-만약 설치되지 않았다면:
-```bash
-brew install python3
-```
-
----
-
-## 🚀 빠른 시작 (Quick Start)
-
-### 1단계: 가상환경 활성화
 ```bash
 cd /Users/hyo/Desktop/ai_assistant/hyochang
 source venv/bin/activate
-```
-
-프롬프트 앞에 `(venv)`가 표시되면 성공입니다.
-
-### 2단계: Gemini API 키 설정
-
-#### 방법 A: 임시 설정 (현재 터미널 세션에만 적용)
-```bash
 export GEMINI_API_KEY='your-api-key-here'
-```
-
-#### 방법 B: 영구 설정 (권장)
-1. API 키를 쉘 설정 파일에 추가:
-```bash
-echo 'export GEMINI_API_KEY="your-api-key-here"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-2. 설정 확인:
-```bash
-echo $GEMINI_API_KEY
-```
-
-**API 키 발급 방법:**
-1. [Google AI Studio](https://aistudio.google.com/app/apikey) 접속
-2. "Create API Key" 클릭
-3. 생성된 키 복사
-
-### 3단계: 프로그램 실행
-```bash
 python3 main.py
 ```
 
 ---
 
-## 🔧 상세 설정 가이드
+## Setup
 
-### 의존성 재설치가 필요한 경우
+### 1. Python 확인
+```bash
+python3 --version  # 3.14+ 필요
+```
+
+### 2. 가상환경 활성화
 ```bash
 source venv/bin/activate
-pip install --upgrade pip
+```
+
+### 3. 패키지 설치
+```bash
 pip install -r requirements.txt
 ```
 
-### 설치된 패키지 확인
+### 4. API 키 설정
+
+**임시 (현재 세션만):**
 ```bash
-pip list
+export GEMINI_API_KEY='your-key'
 ```
 
-### 환경 테스트
-quick_test.py를 실행하여 모든 설정이 올바른지 확인:
+**영구 설정:**
 ```bash
-python3 quick_test.py
-```
-
----
-
-## 📝 프로그램 실행 예시
-
-### 미국 주식 분석 (Apple)
-[main.py:671](main.py#L671) 수정:
-```python
-TICKER = "AAPL"  # Apple Inc.
-main(TICKER)
-```
-
-실행:
-```bash
-python3 main.py
-```
-
-### 한국 주식 분석 (삼성전자)
-[main.py:671](main.py#L671) 수정:
-```python
-TICKER = "005930.KS"  # 삼성전자
-main(TICKER)
-```
-
-실행:
-```bash
-python3 main.py
-```
-
-### 다른 종목 예시
-```python
-# 미국 주식
-"NVDA"    # 엔비디아
-"TSLA"    # 테슬라
-"MSFT"    # 마이크로소프트
-"GOOGL"   # 구글
-
-# 한국 주식
-"005930.KS"  # 삼성전자
-"000660.KS"  # SK하이닉스
-"035420.KS"  # NAVER
-```
-
----
-
-## 🐛 문제 해결 (Troubleshooting)
-
-### 문제 1: "GEMINI_API_KEY is not set" 에러
-**해결책:**
-```bash
-export GEMINI_API_KEY='your-api-key-here'
-```
-또는 영구 설정:
-```bash
-echo 'export GEMINI_API_KEY="your-api-key-here"' >> ~/.zshrc
+echo 'export GEMINI_API_KEY="your-key"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-### 문제 2: "No module named 'xxx'" 에러
-**해결책:**
-```bash
-source venv/bin/activate  # 가상환경 활성화 확인
-pip install -r requirements.txt
-```
-
-### 문제 3: "No data found for ticker" 에러
-**원인:** 잘못된 티커 심볼
-**해결책:**
-- 미국 주식: 티커만 입력 (예: "AAPL")
-- 한국 주식: `.KS` 접미사 필요 (예: "005930.KS")
-
-### 문제 4: matplotlib 차트가 표시되지 않음
-**해결책:**
-차트는 PNG 파일로 저장됩니다:
-- `chart.png` - 기본 차트
-- `chart_annotated.png` - AI 분석이 표시된 차트
-
-Finder로 파일을 열거나:
-```bash
-open chart_annotated.png
-```
+API 키 발급: [Google AI Studio](https://aistudio.google.com/app/apikey)
 
 ---
 
-## 📊 출력 파일
+## 실행
 
-프로그램 실행 후 생성되는 파일:
-1. **chart.png** - 기본 윌리엄 오닐 스타일 차트
-2. **chart_annotated.png** - AI 패턴 분석이 표시된 차트
-
----
-
-## 💡 유용한 팁
-
-### 가상환경 비활성화
-```bash
-deactivate
-```
-
-### 여러 종목 연속 분석
-[main.py](main.py)의 `main()` 함수를 수정:
-```python
-if __name__ == "__main__":
-    tickers = ["AAPL", "NVDA", "TSLA", "GOOGL"]
-    for ticker in tickers:
-        print(f"\n{'='*80}")
-        print(f"분석 시작: {ticker}")
-        print(f"{'='*80}\n")
-        main(ticker)
-```
-
-### 차트 저장 경로 변경
-[main.py:36](main.py#L36):
-```python
-CHART_OUTPUT_PATH = "/Users/hyo/Desktop/charts/chart.png"
-```
-
----
-
-## 📚 추가 자료
-
-- [Google Gemini API 문서](https://ai.google.dev/docs)
-- [yfinance 문서](https://pypi.org/project/yfinance/)
-- [윌리엄 오닐 CAN SLIM](https://www.investors.com/ibd-university/can-slim/)
-
----
-
-## 🔒 보안 주의사항
-
-⚠️ **중요:** API 키를 Git에 커밋하지 마세요!
-
-`.gitignore`에 다음 추가:
-```
-.env
-.env.local
-```
-
----
-
-## ✅ 체크리스트
-
-실행 전 확인사항:
-- [ ] Python 3.14+ 설치 확인
-- [ ] 가상환경 활성화 (`source venv/bin/activate`)
-- [ ] Gemini API 키 설정 (`export GEMINI_API_KEY='...'`)
-- [ ] 의존성 패키지 설치 완료 (`pip list` 확인)
-- [ ] 인터넷 연결 확인 (Yahoo Finance, Gemini API 접근 필요)
-
-모든 항목이 체크되었다면:
 ```bash
 python3 main.py
 ```
 
-Good luck! 🚀📈
+실행하면 모드와 티커를 선택합니다:
+
+```
+================================================================================
+  WILLIAM O'NEIL AI INVESTMENT ASSISTANT  v2.0.0
+================================================================================
+
+  [1] V1 - Basic (AI image analysis only)
+  [2] V2 - Enhanced (Code pattern detection + AI interpretation)
+
+================================================================================
+  Select mode (1 or 2): 2
+  Enter ticker symbol (e.g., AAPL): AMD
+```
+
+### V1 vs V2
+
+| | V1 - Basic | V2 - Enhanced |
+|---|---|---|
+| 방식 | AI가 차트 이미지만 보고 분석 | 코드가 패턴 감지 후 AI가 해석 |
+| 정확도 | 이미지 인식 의존 | 수치 기반 + AI 해석 |
+| 패턴 감지 | AI 주관적 판단 | 코드 자동 감지 (품질 점수 포함) |
+| 거래량 분석 | 시각적 판단 | 축적/분배일 자동 카운팅 |
+| 용도 | 빠른 분석 | 정확한 분석 |
+
+### 종목 예시
+```
+미국: AAPL, NVDA, TSLA, MSFT, AMD, GOOGL
+한국: 005930.KS (삼성전자), 000660.KS (SK하이닉스)
+```
+
+---
+
+## 프로젝트 구조
+
+```
+hyochang/
+  main.py              # 메인 프로그램 (V1/V2 모드 선택)
+  system_prompt.py     # William O'Neil CAN SLIM 시스템 프롬프트
+  pattern_detector.py  # V2 코드 기반 패턴 감지 엔진
+  feedback_manager.py  # 자동 학습 피드백 시스템
+  version.py           # 버전 관리
+  requirements.txt     # Python 패키지 목록
+  .env.template        # API 키 템플릿
+  setup_mac.sh         # Mac 자동 설정 스크립트
+  feedback/            # 사용자 피드백 저장 (git 미추적)
+```
+
+---
+
+## V2 패턴 감지 엔진
+
+V2 모드에서 자동 감지하는 패턴:
+
+| 패턴 | 설명 | 오닐 기준 |
+|---|---|---|
+| Cup-with-Handle | U자형 컵 + 핸들 | 7-65주, 깊이 12-33% |
+| Double Bottom | W자형 이중 바닥 | 두 번째 바닥 undercut |
+| Flat Base | 횡보 후 돌파 | 5주+, 조정 10-15% |
+| High Tight Flag | 급등 후 깃발 | 100%+ 상승 후 10-25% 조정 |
+
+추가 분석:
+- 거래량 분석 (축적일/분배일/급증/건조)
+- Base Stage 카운팅 (1-4단계)
+- 패턴 품질 점수 (0-100)
+- 불량 패턴 필터링
+
+---
+
+## Troubleshooting
+
+| 에러 | 해결 |
+|---|---|
+| `GEMINI_API_KEY is not set` | `export GEMINI_API_KEY='your-key'` |
+| `No module named 'xxx'` | `source venv/bin/activate && pip install -r requirements.txt` |
+| `No data found for ticker` | 티커 확인 (한국: `.KS` 접미사 필요) |
+
+---
+
+## 출력 파일
+
+- `chart.png` - 주봉 차트 (10주/40주 이동평균선)
+
+---
+
+## 보안
+
+API 키를 Git에 커밋하지 마세요. `.gitignore`에 `.env` 포함되어 있습니다.
