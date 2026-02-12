@@ -17,6 +17,8 @@ import re
 import json
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from system_prompt import WILLIAM_ONEIL_ENHANCED_PERSONA
+from feedback_manager import FeedbackManager, collect_feedback
 
 # ====================================================================
 # CONFIGURATION
@@ -160,79 +162,24 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
 # ====================================================================
 # STEP 2: 윌리엄 오닐 페르소나 시스템 프롬프트 (The Brain)
 # ====================================================================
-
-WILLIAM_ONEIL_PERSONA = """
-You are William J. O'Neil, the legendary investor and founder of Investor's Business Daily.
-You are known for your CAN SLIM® investment methodology and your ability to identify winning stocks before they make massive moves.
-
-Your task is to analyze the provided WEEKLY stock chart with the sharp eye of a master technician.
-
-CRITICAL: This is a WEEKLY chart. Each bar/candle represents ONE WEEK of trading, not one day.
-All timeframes and patterns should be analyzed in WEEKS, not days.
-
-ANALYSIS FRAMEWORK (CAN SLIM Principles for Weekly Charts):
-
-1. **TREND ANALYSIS (Primary Trend)**
-   - Is the stock trading ABOVE its 40-week moving average? (Bullish market confirmation)
-   - Is the 10-week MA above or below the 40-week MA? (Golden Cross vs Death Cross)
-   - What is the overall trajectory? Uptrend, downtrend, or consolidation?
-   - The 10-week moving average is CRITICAL - strong stocks stay above it during corrections.
-
-2. **CHART PATTERN RECOGNITION (Weekly Timeframes)**
-   Identify any of these classical patterns:
-   - **Cup with Handle**: U-shaped base (7-65 WEEKS minimum) + handle (1-5 weeks)
-   - **Double Bottom**: W-shaped pattern (several WEEKS to form), second bottom on lower volume
-   - **Flat Base**: Tight 5+ WEEK consolidation near highs (< 15% depth)
-   - **Ascending Base**: Series of higher lows over multiple WEEKS during uptrend
-   - **High Tight Flag**: Massive run (100%+) followed by 3-5 WEEK tight consolidation
-
-3. **VOLUME ANALYSIS (Critical for Weekly Charts!)**
-   - Is there a VOLUME SPIKE on breakout WEEKS? (Must be 40-50% above average weekly volume)
-   - Does volume dry up during the handle/consolidation WEEKS? (Sign of weak selling)
-   - Look for "volume climax" at pattern completion
-   - Weekly volume spikes are MORE significant than daily spikes - they show sustained institutional buying
-
-4. **BUY POINT IDENTIFICATION**
-   - Where is the exact buy point? (Usually 10 cents above pattern high)
-   - Is the stock within 5% of the proper buy point? (Optimal entry zone)
-   - Has the buy point already been triggered?
-
-5. **RISK ASSESSMENT**
-   - How far is the proper stop-loss? (Usually 7-8% below buy point)
-   - Is the risk/reward ratio favorable? (Minimum 3:1 ratio preferred)
-   - Any red flags? (Heavy distribution, failed breakouts, weak volume)
-
-6. **ACTIONABLE RECOMMENDATION**
-   Provide a CLEAR, DIRECT recommendation:
-   - **BUY NOW**: If at or near proper buy point with strong setup
-   - **WATCH & WAIT**: If pattern forming but not ready yet (specify what to watch for)
-   - **AVOID/SELL**: If broken support, heavy distribution, or poor setup
-
-COMMUNICATION STYLE:
-- Be confident and decisive - you've seen thousands of charts
-- Use specific price levels and percentages
-- Reference historical parallels when relevant
-- No hedging or wishy-washy language - give your best judgment
-- If it's a great setup, say so with conviction
-- If it's garbage, don't mince words
-
-Remember: "The whole secret to winning in the stock market is to lose the least amount possible when you're not right." - William O'Neil
-
-Now, analyze this chart with precision and conviction.
-"""
+# 시스템 프롬프트는 system_prompt.py에서 import
+# WILLIAM_ONEIL_ENHANCED_PERSONA 사용
 
 
 # ====================================================================
 # STEP 3: AI 분석 실행 함수 (Execution)
 # ====================================================================
 
-def analyze_chart_with_gemini(image_path: str, ticker: str) -> str:
+def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = None,
+                              feedback_manager: FeedbackManager = None) -> str:
     """
     Gemini 1.5 Flash를 사용하여 차트 분석
 
     Args:
         image_path: 차트 이미지 경로
         ticker: 종목 코드
+        df: OHLCV 데이터프레임 (정확한 날짜/가격 정보 제공)
+        feedback_manager: 피드백 매니저 (과거 학습 데이터 활용)
 
     Returns:
         AI 분석 결과 텍스트
@@ -242,18 +189,50 @@ def analyze_chart_with_gemini(image_path: str, ticker: str) -> str:
     # Gemini API 설정
     genai.configure(api_key=GEMINI_API_KEY)
 
-    # 모델 초기화 (system_instruction으로 페르소나 주입)
+    # 모델 초기화 (system_instruction으로 향상된 페르소나 주입)
     model = genai.GenerativeModel(
         model_name='gemini-2.5-flash',
-        system_instruction=WILLIAM_ONEIL_PERSONA
+        system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA
     )
 
     # 이미지 로드
     image = Image.open(image_path)
 
+    # 데이터 요약 정보 생성 (정확한 날짜/가격 제공)
+    data_summary = ""
+    if df is not None and not df.empty:
+        recent_data = df.tail(52)  # 최근 1년 (52주) 데이터
+
+        # 최고가/최저가 정보
+        max_idx = recent_data['High'].idxmax()
+        min_idx = recent_data['Low'].idxmin()
+        current_price = df.iloc[-1]['Close']
+        current_date = df.index[-1].strftime('%Y-%m-%d')
+
+        data_summary = f"""
+
+IMPORTANT DATA CONTEXT (for accurate date/price reference):
+- Current Date: {current_date}
+- Current Price: ${current_price:.2f}
+- Recent 52-week High: ${recent_data.loc[max_idx, 'High']:.2f} on {max_idx.strftime('%Y-%m-%d')}
+- Recent 52-week Low: ${recent_data.loc[min_idx, 'Low']:.2f} on {min_idx.strftime('%Y-%m-%d')}
+- Data Period: {df.index[0].strftime('%Y-%m-%d')} to {df.index[-1].strftime('%Y-%m-%d')} ({len(df)} weeks total)
+- 10-week MA: ${df.iloc[-1]['MA50']:.2f}
+- 40-week MA: ${df.iloc[-1]['MA200']:.2f}
+
+Use these exact dates and prices in your analysis for accuracy.
+"""
+
+    # 과거 피드백 컨텍스트 추가 (학습)
+    feedback_context = ""
+    if feedback_manager:
+        feedback_context = feedback_manager.get_feedback_context(ticker)
+
     # 분석 요청 프롬프트
     analysis_prompt = f"""
 Analyze this WEEKLY stock chart for {ticker}.
+{data_summary}
+{feedback_context}
 
 IMPORTANT: This is a WEEKLY chart, not a daily chart. Each candle represents one week of trading.
 When analyzing patterns, use weekly timeframes (e.g., "Cup with Handle" should be 7-65 weeks, not days).
@@ -625,19 +604,20 @@ def main(ticker: str):
         # Step 3: 기본 차트 생성 (AI 분석용)
         create_oneil_chart(ticker, df, interval=interval)
 
-        # Step 4: AI 분석
-        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker)
+        # Step 4: AI 분석 (데이터프레임 + 피드백 매니저 전달)
+        feedback_manager = FeedbackManager()
+        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df, feedback_manager)
 
-        # Step 5: 패턴 데이터 추출
-        pattern_data = parse_pattern_data(analysis)
+        # Step 5: 패턴 데이터 추출 (주석 처리 - 패턴 그리기 어려움)
+        # pattern_data = parse_pattern_data(analysis)
 
-        # Step 6: 패턴이 표시된 차트 생성
-        if pattern_data:
-            annotated_chart_path = "chart_annotated.png"
-            create_annotated_chart(ticker, df, pattern_data, annotated_chart_path, interval)
-            final_chart = annotated_chart_path
-        else:
-            final_chart = CHART_OUTPUT_PATH
+        # Step 6: 패턴이 표시된 차트 생성 (주석 처리)
+        # if pattern_data:
+        #     annotated_chart_path = "chart_annotated.png"
+        #     create_annotated_chart(ticker, df, pattern_data, annotated_chart_path, interval)
+        #     final_chart = annotated_chart_path
+        # else:
+        #     final_chart = CHART_OUTPUT_PATH
 
         # 결과 출력
         print()
@@ -648,10 +628,29 @@ def main(ticker: str):
         print(analysis)
         print()
         print("=" * 80)
-        print(f"Basic chart: {CHART_OUTPUT_PATH}")
-        if pattern_data:
-            print(f"Annotated chart (with pattern overlay): {final_chart}")
+        print(f"Chart saved: {CHART_OUTPUT_PATH}")
+        # if pattern_data:
+        #     print(f"Annotated chart (with pattern overlay): {final_chart}")
         print("=" * 80)
+
+        # Step 7: 피드백 수집 (선택사항)
+        # JSON에서 verdict 추출
+        try:
+            verdict_match = re.search(r'"verdict":\s*"([^"]+)"', analysis)
+            verdict = verdict_match.group(1) if verdict_match else "UNKNOWN"
+        except:
+            verdict = "UNKNOWN"
+
+        feedback_data = collect_feedback(ticker, analysis, verdict)
+        if feedback_data:
+            feedback_manager.save_feedback(
+                ticker=feedback_data["ticker"],
+                analysis=feedback_data["analysis"],
+                verdict=feedback_data["verdict"],
+                rating=feedback_data["rating"],
+                comment=feedback_data["comment"]
+            )
+            print(f"[✓] 피드백이 저장되었습니다. AI가 다음 분석에서 학습합니다!")
 
     except Exception as e:
         print(f"[ERROR] {e}")
@@ -668,6 +667,6 @@ if __name__ == "__main__":
     # 미국 주식: "AAPL", "TSLA", "NVDA", "MSFT"
     # 한국 주식: "005930.KS" (삼성전자), "000660.KS" (SK하이닉스)
 
-    TICKER = "AAPL"  # 이곳에 분석하고 싶은 종목 코드 입력
+    TICKER = "AAPL"  # Apple Inc - 테스트
 
     main(TICKER)
