@@ -667,6 +667,6 @@ if __name__ == "__main__":
     # 미국 주식: "AAPL", "TSLA", "NVDA", "MSFT"
     # 한국 주식: "005930.KS" (삼성전자), "000660.KS" (SK하이닉스)
 
-    TICKER = "IREN"  # Iris Energy
+    TICKER = "AAPL"  # Apple Inc - 테스트
 
     main(TICKER)
