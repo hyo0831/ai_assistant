@@ -7,6 +7,7 @@ chart_analysis_technical_spec.md 기반으로 구현
 
 import numpy as np
 import pandas as pd
+import yfinance as yf
 from typing import List, Dict, Optional
 
 
@@ -723,15 +724,144 @@ def check_pattern_faults(pattern: Dict, df: pd.DataFrame) -> List[str]:
 
 
 # ====================================================================
-# 8. 메인 분석 함수 (통합)
+# 8. 상대강도 (Relative Strength) 분석
 # ====================================================================
 
-def run_pattern_detection(df: pd.DataFrame) -> Dict:
+def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
+    """
+    오닐 스타일 상대강도(RS) 분석
+    S&P 500 대비 주가 성과를 측정
+
+    오닐 기준:
+    - RS Rating 85+ 이상만 매수 대상
+    - RS가 신고가를 먼저 경신하면 강력한 신호
+    - RS가 하락 추세이면 리더가 아닌 래거드
+
+    Args:
+        df: 주봉 OHLCV 데이터프레임 (종목)
+        ticker: 종목 코드
+
+    Returns:
+        RS 분석 결과 딕셔너리
+    """
+    result = {
+        'rs_vs_sp500': {},
+        'rs_rating': None,
+        'rs_trend': 'N/A',
+        'rs_new_high': False,
+        'interpretation': ''
+    }
+
+    try:
+        # S&P 500 데이터 다운로드 (같은 기간)
+        start_date = df.index[0].strftime('%Y-%m-%d')
+        end_date = df.index[-1].strftime('%Y-%m-%d')
+
+        sp500 = yf.Ticker("^GSPC")
+        sp_df = sp500.history(start=start_date, end=end_date, interval="1wk")
+
+        if sp_df.empty or len(sp_df) < 13:
+            result['interpretation'] = 'S&P 500 data unavailable for RS calculation'
+            return result
+
+        # 공통 날짜 기준 정렬
+        stock_closes = df['Close']
+        sp_closes = sp_df['Close']
+
+        # 기간별 수익률 계산
+        periods = {
+            '13w': 13,   # 3개월
+            '26w': 26,   # 6개월
+            '52w': 52,   # 1년
+        }
+
+        for label, weeks in periods.items():
+            if len(stock_closes) > weeks and len(sp_closes) > weeks:
+                stock_return = ((stock_closes.iloc[-1] - stock_closes.iloc[-weeks]) / stock_closes.iloc[-weeks]) * 100
+                sp_return = ((sp_closes.iloc[-1] - sp_closes.iloc[-weeks]) / sp_closes.iloc[-weeks]) * 100
+                outperformance = stock_return - sp_return
+
+                result['rs_vs_sp500'][label] = {
+                    'stock_return': round(float(stock_return), 1),
+                    'sp500_return': round(float(sp_return), 1),
+                    'outperformance': round(float(outperformance), 1)
+                }
+
+        # RS Rating 추정 (오닐의 1-99 스케일 근사)
+        # 가중치: 최근 분기 40%, 이전 분기 20%, 이전 20%, 이전 20%
+        if len(stock_closes) >= 52 and len(sp_closes) >= 52:
+            q1 = ((stock_closes.iloc[-1] - stock_closes.iloc[-13]) / stock_closes.iloc[-13]) * 100  # 최근 13주
+            q2 = ((stock_closes.iloc[-13] - stock_closes.iloc[-26]) / stock_closes.iloc[-26]) * 100 if len(stock_closes) > 26 else 0
+            q3 = ((stock_closes.iloc[-26] - stock_closes.iloc[-39]) / stock_closes.iloc[-39]) * 100 if len(stock_closes) > 39 else 0
+            q4 = ((stock_closes.iloc[-39] - stock_closes.iloc[-52]) / stock_closes.iloc[-52]) * 100 if len(stock_closes) > 52 else 0
+
+            sp_q1 = ((sp_closes.iloc[-1] - sp_closes.iloc[-13]) / sp_closes.iloc[-13]) * 100
+            sp_q2 = ((sp_closes.iloc[-13] - sp_closes.iloc[-26]) / sp_closes.iloc[-26]) * 100 if len(sp_closes) > 26 else 0
+            sp_q3 = ((sp_closes.iloc[-26] - sp_closes.iloc[-39]) / sp_closes.iloc[-39]) * 100 if len(sp_closes) > 39 else 0
+            sp_q4 = ((sp_closes.iloc[-39] - sp_closes.iloc[-52]) / sp_closes.iloc[-52]) * 100 if len(sp_closes) > 52 else 0
+
+            # 가중 성과 (40/20/20/20)
+            weighted_stock = q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
+            weighted_sp = sp_q1 * 0.4 + sp_q2 * 0.2 + sp_q3 * 0.2 + sp_q4 * 0.2
+
+            # 상대 성과를 0-99 스케일로 변환
+            # 시장 대비 초과 성과가 높을수록 RS가 높음
+            relative_perf = weighted_stock - weighted_sp
+            # 대략적 변환: -50% 이하 = 1, 0% = 50, +50% 이상 = 99
+            rs_rating = int(min(99, max(1, 50 + relative_perf * 1.0)))
+            result['rs_rating'] = rs_rating
+
+        # RS 추세 분석 (최근 10주 RS Line 방향)
+        if len(stock_closes) >= 10 and len(sp_closes) >= 10:
+            # RS Line = stock / S&P500 (비율)
+            common_len = min(len(stock_closes), len(sp_closes))
+            rs_line = stock_closes.iloc[-common_len:].values / sp_closes.iloc[-common_len:].values
+
+            rs_recent = rs_line[-5:].mean()
+            rs_prior = rs_line[-10:-5].mean()
+
+            if rs_recent > rs_prior * 1.02:
+                result['rs_trend'] = 'RISING'
+            elif rs_recent < rs_prior * 0.98:
+                result['rs_trend'] = 'FALLING'
+            else:
+                result['rs_trend'] = 'FLAT'
+
+            # RS 신고가 체크 (52주 기준)
+            if len(rs_line) >= 52:
+                rs_52w_high = np.max(rs_line[-52:])
+                if rs_line[-1] >= rs_52w_high * 0.98:  # 2% 이내
+                    result['rs_new_high'] = True
+
+        # 해석 생성
+        rs = result['rs_rating']
+        if rs is not None:
+            if rs >= 85:
+                result['interpretation'] = f"STRONG LEADER (RS {rs}): Stock significantly outperforms the market. O'Neil says buy only RS 85+."
+            elif rs >= 70:
+                result['interpretation'] = f"ABOVE AVERAGE (RS {rs}): Outperforming market but not in top tier. Watch for improvement."
+            elif rs >= 50:
+                result['interpretation'] = f"AVERAGE (RS {rs}): Performing roughly in line with market. Not a leader."
+            else:
+                result['interpretation'] = f"LAGGARD (RS {rs}): Underperforming the market. O'Neil says never buy RS below 70."
+
+    except Exception as e:
+        result['interpretation'] = f'RS calculation error: {str(e)}'
+
+    return result
+
+
+# ====================================================================
+# 9. 메인 분석 함수 (통합)
+# ====================================================================
+
+def run_pattern_detection(df: pd.DataFrame, ticker: str = "") -> Dict:
     """
     전체 패턴 감지 파이프라인 실행
 
     Args:
         df: 주봉 OHLCV 데이터프레임
+        ticker: 종목 코드 (RS 계산에 사용)
 
     Returns:
         종합 분석 결과 딕셔너리
@@ -780,6 +910,12 @@ def run_pattern_detection(df: pd.DataFrame) -> Dict:
     print("  - Counting base stage...")
     stage_info = count_base_stage(df)
 
+    # RS 분석
+    print("  - Calculating Relative Strength vs S&P 500...")
+    rs_analysis = analyze_relative_strength(df, ticker)
+    if rs_analysis.get('rs_rating'):
+        print(f"  [OK] RS Rating: {rs_analysis['rs_rating']} ({rs_analysis['rs_trend']})")
+
     # 결과 종합
     result = {
         'all_patterns': all_patterns,
@@ -787,7 +923,8 @@ def run_pattern_detection(df: pd.DataFrame) -> Dict:
         'pattern_faults': faults,
         'volume_analysis': volume_analysis,
         'base_stage': stage_info,
-        'summary': _generate_summary(best_pattern, faults, volume_analysis, stage_info, df)
+        'rs_analysis': rs_analysis,
+        'summary': _generate_summary(best_pattern, faults, volume_analysis, stage_info, rs_analysis, df)
     }
 
     print("[OK] Pattern detection complete!")
@@ -795,7 +932,7 @@ def run_pattern_detection(df: pd.DataFrame) -> Dict:
 
 
 def _generate_summary(pattern: Optional[Dict], faults: List[str],
-                      volume: Dict, stage: Dict, df: pd.DataFrame) -> str:
+                      volume: Dict, stage: Dict, rs: Dict, df: pd.DataFrame) -> str:
     """패턴 감지 결과를 AI에게 전달할 텍스트 요약 생성"""
 
     lines = []
@@ -868,6 +1005,20 @@ def _generate_summary(pattern: Optional[Dict], faults: List[str],
     lines.append(f"\nBASE STAGE: Estimated Stage {stage.get('estimated_stage', 'N/A')}")
     if stage.get('warning'):
         lines.append(f"  [!] {stage['warning']}")
+
+    # RS 분석
+    lines.append(f"\nRELATIVE STRENGTH (vs S&P 500):")
+    if rs.get('rs_rating') is not None:
+        lines.append(f"RS Rating: {rs['rs_rating']}/99")
+        lines.append(f"RS Trend (10-week): {rs.get('rs_trend', 'N/A')}")
+        lines.append(f"RS New High: {'Yes' if rs.get('rs_new_high') else 'No'}")
+        if rs.get('rs_vs_sp500'):
+            for period, data in rs['rs_vs_sp500'].items():
+                lines.append(f"  {period}: Stock {data['stock_return']:+.1f}% vs S&P {data['sp500_return']:+.1f}% (Outperformance: {data['outperformance']:+.1f}%)")
+        if rs.get('interpretation'):
+            lines.append(f"Assessment: {rs['interpretation']}")
+    else:
+        lines.append(f"  {rs.get('interpretation', 'Unable to calculate')}")
 
     lines.append("=" * 60)
 
