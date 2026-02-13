@@ -759,7 +759,7 @@ def main_v2(ticker: str):
 
         # Step 3: 코드 기반 패턴 감지 실행
         print()
-        pattern_result = run_pattern_detection(df)
+        pattern_result = run_pattern_detection(df, ticker)
         print()
 
         # 코드 감지 결과 미리보기 출력
@@ -779,6 +779,9 @@ def main_v2(ticker: str):
             print("  No clear pattern detected")
         print(f"  Base Stage: {pattern_result['base_stage'].get('estimated_stage', 'N/A')}")
         print(f"  Volume Trend: {pattern_result['volume_analysis'].get('recent_volume_trend', 'N/A')}")
+        rs = pattern_result.get('rs_analysis', {})
+        if rs.get('rs_rating') is not None:
+            print(f"  RS Rating: {rs['rs_rating']}/99 | Trend: {rs.get('rs_trend', 'N/A')} | New High: {'Yes' if rs.get('rs_new_high') else 'No'}")
         print("-" * 60)
         print()
 
