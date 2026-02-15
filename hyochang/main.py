@@ -3,6 +3,9 @@
 """
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
+
 import yfinance as yf
 import mplfinance as mpf
 import pandas as pd
@@ -16,11 +19,15 @@ import matplotlib.patches as patches
 from system_prompt import WILLIAM_ONEIL_ENHANCED_PERSONA
 from feedback_manager import FeedbackManager, collect_feedback
 from pattern_detector import run_pattern_detection
+from fundamental_analyzer import analyze_fundamentals
 from version import VERSION, VERSION_NAME
 
 # ====================================================================
 # CONFIGURATION
 # ====================================================================
+
+# 언어 설정 (Language setting): "ko" = 한국어, "en" = English
+LANGUAGE = "ko"
 
 # Gemini API Key (환경변수에서 로드)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -34,6 +41,21 @@ if not GEMINI_API_KEY or GEMINI_API_KEY == "YOUR_API_KEY_HERE":
 
 # 차트 저장 경로
 CHART_OUTPUT_PATH = "chart.png"
+
+
+def _get_language_instruction() -> str:
+    """분석 프롬프트에 삽입할 언어 지시 생성"""
+    if LANGUAGE == "ko":
+        return (
+            "\n\nIMPORTANT - LANGUAGE INSTRUCTION:\n"
+            "You MUST write your entire analysis in Korean (한국어).\n"
+            "Keep technical terms in English where appropriate "
+            "(e.g., Cup with Handle, CAN SLIM, Flat Base, Double Bottom, "
+            "High Tight Flag, RS Rating, EPS, ROE, P/E, Buy Point, Stop Loss, "
+            "Accumulation, Distribution, Breakout).\n"
+            "All explanatory text, commentary, and conclusions must be in Korean.\n"
+        )
+    return ""
 
 # ====================================================================
 # STEP 1: 윌리엄 오닐 스타일 차트 생성기 (The Eye)
@@ -169,7 +191,8 @@ def create_oneil_chart(ticker: str, df: pd.DataFrame, output_path: str = CHART_O
 # ====================================================================
 
 def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = None,
-                              feedback_manager: FeedbackManager = None) -> str:
+                              feedback_manager: FeedbackManager = None,
+                              interval: str = "1wk") -> str:
     """
     Gemini 1.5 Flash를 사용하여 차트 분석
 
@@ -178,6 +201,7 @@ def analyze_chart_with_gemini(image_path: str, ticker: str, df: pd.DataFrame = N
         ticker: 종목 코드
         df: OHLCV 데이터프레임 (정확한 날짜/가격 정보 제공)
         feedback_manager: 피드백 매니저 (과거 학습 데이터 활용)
+        interval: 차트 간격 ('1wk' 주봉, '1d' 일봉)
 
     Returns:
         AI 분석 결과 텍스트
@@ -226,14 +250,24 @@ Use these exact dates and prices in your analysis for accuracy.
     if feedback_manager:
         feedback_context = feedback_manager.get_feedback_context(ticker)
 
+    # 언어 지시
+    lang_instruction = _get_language_instruction()
+
+    # 차트 유형 텍스트
+    if interval == '1d':
+        chart_type_text = "DAILY"
+        timeframe_note = "This is a DAILY chart. Each candle represents one day of trading."
+    else:
+        chart_type_text = "WEEKLY"
+        timeframe_note = "This is a WEEKLY chart, not a daily chart. Each candle represents one week of trading.\nWhen analyzing patterns, use weekly timeframes (e.g., \"Cup with Handle\" should be 7-65 weeks, not days)."
+
     # 분석 요청 프롬프트
     analysis_prompt = f"""
-Analyze this WEEKLY stock chart for {ticker}.
+Analyze this {chart_type_text} stock chart for {ticker}.
 {data_summary}
 {feedback_context}
-
-IMPORTANT: This is a WEEKLY chart, not a daily chart. Each candle represents one week of trading.
-When analyzing patterns, use weekly timeframes (e.g., "Cup with Handle" should be 7-65 weeks, not days).
+{lang_instruction}
+IMPORTANT: {timeframe_note}
 
 Provide your analysis in TWO parts:
 
@@ -294,7 +328,7 @@ Be specific, use actual price levels visible on the chart, and give your honest 
     print("[OK] Analysis complete!")
 
     # Windows 콘솔 호환성을 위해 이모지 제거
-    clean_text = re.sub(r'[^\x00-\x7F\n\r\t가-힣]', '', response.text)
+    clean_text = _remove_emojis(response.text)
 
     return clean_text
 
@@ -575,36 +609,44 @@ def create_annotated_chart(ticker: str, df: pd.DataFrame, pattern_data: dict,
 # MAIN EXECUTION — V1 (기본: AI 이미지 분석만)
 # ====================================================================
 
-def main_v1(ticker: str):
+def main_v1(ticker: str, interval: str = "1wk", period: str = "3y",
+            short_ma: int = 10, long_ma: int = 40):
     """
     V1 메인 실행 함수 (기존 버전)
     AI가 차트 이미지를 직접 보고 분석
 
     Args:
         ticker: 분석할 종목 코드
+        interval: 차트 간격 ('1wk' 주봉, '1d' 일봉)
+        period: 데이터 기간
+        short_ma: 단기 이동평균 기간
+        long_ma: 장기 이동평균 기간
     """
+    chart_type = "Weekly / 주봉" if interval == "1wk" else "Daily / 일봉"
     print("=" * 80)
     print("WILLIAM O'NEIL AI INVESTMENT ASSISTANT [V1 - Basic]")
+    print("윌리엄 오닐 AI 투자 어시스턴트 [V1 - 기본 분석]")
     print("=" * 80)
-    print(f"Target: {ticker}")
-    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"분석 종목 (Target): {ticker}")
+    print(f"차트 유형 (Chart): {chart_type}")
+    print(f"분석 시간 (Timestamp): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 80)
     print()
 
     try:
-        # Step 1: 데이터 다운로드 (주봉, 3년치)
-        interval = "1wk"
-        df = fetch_stock_data(ticker, period="3y", interval=interval)
+        # Step 1: 데이터 다운로드
+        df = fetch_stock_data(ticker, period=period, interval=interval)
 
-        # Step 2: 이동평균선 계산 (주봉: 10주, 40주)
-        df = calculate_moving_averages(df, short_window=10, long_window=40)
+        # Step 2: 이동평균선 계산
+        df = calculate_moving_averages(df, short_window=short_ma, long_window=long_ma)
 
         # Step 3: 기본 차트 생성 (AI 분석용)
         create_oneil_chart(ticker, df, interval=interval)
 
         # Step 4: AI 분석 (데이터프레임 + 피드백 매니저 전달)
         feedback_manager = FeedbackManager()
-        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df, feedback_manager)
+        analysis = analyze_chart_with_gemini(CHART_OUTPUT_PATH, ticker, df, feedback_manager,
+                                             interval=interval)
 
         # 결과 출력
         _print_analysis_result(analysis)
@@ -623,9 +665,11 @@ def main_v1(ticker: str):
 
 def analyze_chart_v2(image_path: str, ticker: str, df: pd.DataFrame,
                      pattern_result: dict,
-                     feedback_manager: FeedbackManager = None) -> str:
+                     feedback_manager: FeedbackManager = None,
+                     fundamental_result: dict = None,
+                     interval: str = "1wk") -> str:
     """
-    V2: 코드 기반 패턴 감지 결과를 AI에게 전달하여 해석
+    V2: 코드 기반 패턴 감지 결과 + 펀더멘털 분석을 AI에게 전달하여 해석
 
     Args:
         image_path: 차트 이미지 경로
@@ -633,6 +677,7 @@ def analyze_chart_v2(image_path: str, ticker: str, df: pd.DataFrame,
         df: OHLCV 데이터프레임
         pattern_result: pattern_detector.run_pattern_detection() 결과
         feedback_manager: 피드백 매니저
+        fundamental_result: fundamental_analyzer.analyze_fundamentals() 결과
 
     Returns:
         AI 분석 결과 텍스트
@@ -671,16 +716,32 @@ IMPORTANT DATA CONTEXT (for accurate date/price reference):
     # 코드 기반 패턴 감지 결과
     pattern_summary = pattern_result.get('summary', 'No pattern detection results available.')
 
+    # 펀더멘털 분석 결과 (새 구조: prompt_text 사용)
+    fundamental_summary = ""
+    if fundamental_result and not fundamental_result.get('error'):
+        fundamental_summary = fundamental_result.get('prompt_text', '')
+
     # 피드백 컨텍스트
     feedback_context = ""
     if feedback_manager:
         feedback_context = feedback_manager.get_feedback_context(ticker)
 
-    # V2 분석 프롬프트 (코드 감지 결과를 참고하도록)
+    # 언어 지시
+    lang_instruction = _get_language_instruction()
+
+    # 차트 유형 텍스트
+    chart_type_text = "DAILY" if interval == '1d' else "WEEKLY"
+    if interval == '1d':
+        timeframe_note = "This is a DAILY chart. Each candle = one day of trading."
+    else:
+        timeframe_note = "This is a WEEKLY chart. Each candle = one week of trading."
+
+    # V2 분석 프롬프트 (코드 감지 결과 + 펀더멘털을 참고하도록)
     analysis_prompt = f"""
-Analyze this WEEKLY stock chart for {ticker}.
+Analyze this {chart_type_text} stock chart for {ticker}.
 
 {data_summary}
+{lang_instruction}
 
 ## CODE-BASED PATTERN DETECTION RESULTS
 The following patterns and metrics were detected by our automated pattern detection engine.
@@ -689,11 +750,19 @@ If the code detection and your visual analysis conflict, explain the discrepancy
 
 {pattern_summary}
 
+## CAN SLIM FUNDAMENTAL DATA
+The following is factual data collected for each CAN SLIM factor (C, A, N, S, L, I, M).
+Each section includes O'Neil's original rules from "How to Make Money in Stocks" for your reference.
+Evaluate each factor against O'Neil's criteria based on the data provided.
+Do NOT use pre-calculated scores — make your own judgment based on the raw data and O'Neil's rules.
+
+{fundamental_summary if fundamental_summary else "Fundamental data not available."}
+
 {feedback_context}
 
-IMPORTANT: This is a WEEKLY chart. Each candle = one week of trading.
+IMPORTANT: {timeframe_note}
 
-Based on BOTH the chart image AND the code-detected pattern data above, provide your analysis:
+Based on the chart image, code-detected pattern data, AND CAN SLIM fundamental data above, provide your analysis:
 
 ## CHART ANALYSIS: {ticker}
 
@@ -707,55 +776,69 @@ If code detected a pattern, assess its quality. If no pattern was detected, expl
 ### 3. Volume Behavior
 [Use both the chart and the code-detected volume analysis. Are accumulation/distribution days concerning?]
 
-### 4. Buy Point & Entry
+### 4. CAN SLIM Fundamental Assessment
+[Evaluate EACH CAN SLIM factor (C, A, N, S, L, I, M) using the raw data provided and O'Neil's original rules.
+For each factor, state whether it PASSES or FAILS O'Neil's criteria and explain why.
+Be specific with numbers - quote the actual EPS growth rates, ROE, RS Rating, etc.]
+
+### 5. Buy Point & Entry
 [Use the code-detected pivot point as reference. Is the stock at, near, or far from the buy point?
 Current price vs. pivot point relationship.]
 
-### 5. Risk Management
+### 6. Risk Management
 [Stop-loss level (7-8% below buy point). Risk/reward ratio.]
 
-### 6. Pattern Quality & Faults
+### 7. Pattern Quality & Faults
 [Address any faults detected by the code. Are they valid concerns?
 What is the base stage and what does it mean for risk?]
 
-### 7. FINAL VERDICT
-[BUY NOW / WATCH & WAIT / AVOID — with specific reasoning integrating both code data and chart analysis]
+### 8. FINAL VERDICT
+[BUY NOW / WATCH & WAIT / AVOID — with specific reasoning integrating technical analysis AND each CAN SLIM factor.
+Consider Market Direction (M) as O'Neil says it's "50% of the entire investing game."]
 
 ---
 Be specific with price levels and percentages. Give your honest professional opinion.
+Integrate BOTH technical chart analysis and ALL CAN SLIM fundamental factors in your final verdict.
 """
 
     response = model.generate_content([analysis_prompt, image])
 
     print("[OK] V2 Analysis complete!")
 
-    clean_text = re.sub(r'[^\x00-\x7F\n\r\t가-힣]', '', response.text)
+    clean_text = _remove_emojis(response.text)
     return clean_text
 
 
-def main_v2(ticker: str):
+def main_v2(ticker: str, interval: str = "1wk", period: str = "3y",
+            short_ma: int = 10, long_ma: int = 40):
     """
     V2 메인 실행 함수 (향상 버전)
-    코드 기반 패턴 감지 → AI가 결과를 해석
+    코드 기반 패턴 감지 + 펀더멘털 분석 → AI가 결과를 해석
 
     Args:
         ticker: 분석할 종목 코드
+        interval: 차트 간격 ('1wk' 주봉, '1d' 일봉)
+        period: 데이터 기간
+        short_ma: 단기 이동평균 기간
+        long_ma: 장기 이동평균 기간
     """
+    chart_type = "Weekly / 주봉" if interval == "1wk" else "Daily / 일봉"
     print("=" * 80)
     print("WILLIAM O'NEIL AI INVESTMENT ASSISTANT [V2 - Enhanced Pattern Detection]")
+    print("윌리엄 오닐 AI 투자 어시스턴트 [V2 - 향상된 패턴 감지 + 펀더멘털]")
     print("=" * 80)
-    print(f"Target: {ticker}")
-    print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"분석 종목 (Target): {ticker}")
+    print(f"차트 유형 (Chart): {chart_type}")
+    print(f"분석 시간 (Timestamp): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 80)
     print()
 
     try:
-        # Step 1: 데이터 다운로드 (주봉, 3년치)
-        interval = "1wk"
-        df = fetch_stock_data(ticker, period="3y", interval=interval)
+        # Step 1: 데이터 다운로드
+        df = fetch_stock_data(ticker, period=period, interval=interval)
 
-        # Step 2: 이동평균선 계산 (주봉: 10주, 40주)
-        df = calculate_moving_averages(df, short_window=10, long_window=40)
+        # Step 2: 이동평균선 계산
+        df = calculate_moving_averages(df, short_window=short_ma, long_window=long_ma)
 
         # Step 3: 코드 기반 패턴 감지 실행
         print()
@@ -785,17 +868,25 @@ def main_v2(ticker: str):
         print("-" * 60)
         print()
 
-        # Step 4: 차트 생성
+        # Step 4: 펀더멘털 분석 실행 (RS 분석 결과를 L 요소에 전달)
+        print()
+        rs_analysis = pattern_result.get('rs_analysis', {})
+        fundamental_result = analyze_fundamentals(ticker, rs_analysis=rs_analysis)
+        print()
+
+        # Step 5: 차트 생성
         create_oneil_chart(ticker, df, interval=interval)
 
-        # Step 5: V2 AI 분석 (코드 감지 결과 + 차트 이미지)
+        # Step 6: V2 AI 분석 (코드 감지 결과 + 펀더멘털 + 차트 이미지)
         feedback_manager = FeedbackManager()
         analysis = analyze_chart_v2(
-            CHART_OUTPUT_PATH, ticker, df, pattern_result, feedback_manager
+            CHART_OUTPUT_PATH, ticker, df, pattern_result, feedback_manager,
+            fundamental_result, interval=interval
         )
 
-        # 결과 출력
-        _print_analysis_result(analysis)
+        # 결과 출력 (RS 정보 포함)
+        rs_info = pattern_result.get('rs_analysis', {})
+        _print_analysis_result(analysis, rs_info=rs_info)
 
         # 피드백 수집
         _collect_and_save_feedback(ticker, analysis, feedback_manager)
@@ -809,17 +900,49 @@ def main_v2(ticker: str):
 # 공통 유틸리티 함수
 # ====================================================================
 
-def _print_analysis_result(analysis: str):
+def _remove_emojis(text: str) -> str:
+    """이모지만 선택적으로 제거하고 한국어/일본어/중국어 등 모든 유니코드 문자 보존"""
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map symbols
+        "\U0001F1E0-\U0001F1FF"  # flags
+        "\U0001F900-\U0001F9FF"  # supplemental symbols
+        "\U0001FA00-\U0001FA6F"  # chess symbols
+        "\U0001FA70-\U0001FAFF"  # symbols extended-A
+        "\U0000FE00-\U0000FE0F"  # variation selectors
+        "\U0000200D"             # zero width joiner
+        "\U00002B50"             # star
+        "\U00002B55"             # circle
+        "]+",
+        flags=re.UNICODE
+    )
+    return emoji_pattern.sub('', text)
+
+def _print_analysis_result(analysis: str, rs_info: dict = None):
     """분석 결과 출력"""
     print()
     print("=" * 80)
-    print("ANALYSIS RESULT")
+    print("ANALYSIS RESULT / 분석 결과")
     print("=" * 80)
+
+    # RS Rating 정보 표시
+    if rs_info and rs_info.get('rs_rating') is not None:
+        print()
+        print("-" * 40)
+        print(f"  RS Rating: {rs_info['rs_rating']}/99")
+        print(f"  RS Trend (10주): {rs_info.get('rs_trend', 'N/A')}")
+        print(f"  RS New High: {'Yes' if rs_info.get('rs_new_high') else 'No'}")
+        if rs_info.get('interpretation'):
+            print(f"  평가: {rs_info['interpretation']}")
+        print("-" * 40)
+
     print()
     print(analysis)
     print()
     print("=" * 80)
-    print(f"Chart saved: {CHART_OUTPUT_PATH}")
+    print(f"차트 저장 위치 (Chart saved): {CHART_OUTPUT_PATH}")
     print("=" * 80)
 
 
@@ -846,6 +969,120 @@ def _collect_and_save_feedback(ticker: str, analysis: str, feedback_manager: Fee
 
 
 # ====================================================================
+# 다중 종목 비교 모드
+# ====================================================================
+
+def main_compare(tickers: list):
+    """
+    다중 종목 비교 모드 - 여러 종목의 핵심 지표를 테이블로 비교
+
+    Args:
+        tickers: 비교할 종목 코드 리스트
+    """
+    print("=" * 80)
+    print("WILLIAM O'NEIL MULTI-STOCK COMPARISON / 다중 종목 비교")
+    print("=" * 80)
+    print(f"비교 종목 (Tickers): {', '.join(tickers)}")
+    print(f"분석 시간 (Timestamp): {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 80)
+    print()
+
+    results = []
+
+    for ticker in tickers:
+        print(f"[*] Analyzing {ticker}...")
+        try:
+            # 데이터 다운로드
+            df = fetch_stock_data(ticker, period="3y", interval="1wk")
+            df = calculate_moving_averages(df, short_window=10, long_window=40)
+
+            # 패턴 감지
+            pattern_result = run_pattern_detection(df, ticker)
+
+            current_price = df.iloc[-1]['Close']
+            ma10 = df.iloc[-1]['MA50']
+            ma40 = df.iloc[-1]['MA200']
+
+            rs = pattern_result.get('rs_analysis', {})
+            bp = pattern_result.get('best_pattern')
+
+            row = {
+                'Ticker': ticker,
+                'Price': f"${current_price:.2f}",
+                'vs 10w MA': f"{((current_price - ma10) / ma10) * 100:+.1f}%",
+                'vs 40w MA': f"{((current_price - ma40) / ma40) * 100:+.1f}%",
+                'RS Rating': rs.get('rs_rating', 'N/A'),
+                'RS Trend': rs.get('rs_trend', 'N/A'),
+                'Pattern': bp['type'] if bp else 'None',
+                'Quality': f"{bp['quality_score']}/100" if bp else '-',
+                'Stage': pattern_result['base_stage'].get('estimated_stage', 'N/A'),
+                'Vol Trend': pattern_result['volume_analysis'].get('recent_volume_trend', 'N/A'),
+            }
+            results.append(row)
+            print(f"[OK] {ticker} complete")
+
+        except Exception as e:
+            print(f"[ERROR] {ticker}: {e}")
+            results.append({'Ticker': ticker, 'Price': 'ERROR', 'vs 10w MA': '-',
+                          'vs 40w MA': '-', 'RS Rating': '-', 'RS Trend': '-',
+                          'Pattern': '-', 'Quality': '-',
+                          'Stage': '-', 'Vol Trend': '-'})
+
+    # 비교 테이블 출력
+    print()
+    print("=" * 120)
+    print("COMPARISON TABLE / 비교 결과")
+    print("=" * 120)
+
+    if results:
+        # 헤더
+        headers = list(results[0].keys())
+        col_widths = {}
+        for h in headers:
+            col_widths[h] = max(len(str(h)), max(len(str(r.get(h, ''))) for r in results)) + 2
+
+        header_line = " | ".join(str(h).ljust(col_widths[h]) for h in headers)
+        print(header_line)
+        print("-" * len(header_line))
+
+        # 행
+        for row in results:
+            line = " | ".join(str(row.get(h, '')).ljust(col_widths[h]) for h in headers)
+            print(line)
+
+    print("=" * 120)
+    print()
+
+    # 랭킹
+    ranked = [r for r in results if r.get('RS Rating') not in ('N/A', '-')]
+    if ranked:
+        ranked.sort(key=lambda x: int(x['RS Rating']) if isinstance(x['RS Rating'], int) else 0, reverse=True)
+        print("RS Rating 순위 (Ranking by RS Rating):")
+        for i, r in enumerate(ranked, 1):
+            print(f"  {i}. {r['Ticker']} - RS {r['RS Rating']}, CAN SLIM {r['CAN SLIM']}, Pattern: {r['Pattern']}")
+        print()
+
+
+def _select_chart_interval() -> tuple:
+    """
+    차트 간격 선택 (주봉/일봉)
+
+    Returns:
+        (interval, period, short_ma, long_ma) 튜플
+    """
+    print()
+    print("  차트 유형 선택 (Chart type):")
+    print("  [W] 주봉 Weekly (기본/Default)")
+    print("  [D] 일봉 Daily")
+    choice = input("  Select (W/D): ").strip().upper()
+
+    if choice == 'D':
+        return ('1d', '1y', 50, 200)
+    else:
+        return ('1wk', '3y', 10, 40)
+
+
+# ====================================================================
 # ENTRY POINT — 모드 선택
 # ====================================================================
 
@@ -853,30 +1090,47 @@ if __name__ == "__main__":
     print()
     print("=" * 80)
     print(f"  WILLIAM O'NEIL AI INVESTMENT ASSISTANT  v{VERSION}")
+    print(f"  윌리엄 오닐 AI 투자 어시스턴트")
     print("=" * 80)
     print()
-    print("  [1] V1 - Basic (AI image analysis only)")
+    print("  [1] V1 - Basic (AI 이미지 분석)")
     print("      AI가 차트 이미지를 직접 보고 분석합니다.")
     print()
-    print("  [2] V2 - Enhanced (Code pattern detection + AI interpretation)")
-    print("      코드가 패턴을 먼저 감지한 후, AI가 결과를 해석합니다.")
-    print("      더 정확한 수치 기반 분석을 제공합니다.")
+    print("  [2] V2 - Enhanced (패턴 감지 + 펀더멘털 + AI 해석)")
+    print("      코드가 패턴을 먼저 감지하고, 펀더멘털 분석 후 AI가 종합 해석합니다.")
+    print()
+    print("  [3] Compare - 다중 종목 비교")
+    print("      여러 종목을 비교 분석하여 테이블로 출력합니다.")
     print()
     print("=" * 80)
 
-    mode = input("  Select mode (1 or 2): ").strip()
-    if mode not in ('1', '2'):
-        print("  Invalid selection. Defaulting to V2.")
+    mode = input("  모드 선택 (Select mode) [1/2/3]: ").strip()
+    if mode not in ('1', '2', '3'):
+        print("  잘못된 선택입니다. V2로 기본 설정합니다.")
         mode = '2'
 
-    ticker = input("  Enter ticker symbol (e.g., AAPL): ").strip().upper()
-    if not ticker:
-        ticker = "AAPL"
-        print(f"  No ticker entered. Using default: {ticker}")
-
-    print()
-
-    if mode == '1':
-        main_v1(ticker)
+    if mode == '3':
+        tickers_input = input("  종목 코드 입력 (쉼표 구분, e.g., AAPL,MSFT,NVDA): ").strip().upper()
+        if not tickers_input:
+            tickers_input = "AAPL,MSFT,NVDA"
+            print(f"  기본값 사용: {tickers_input}")
+        tickers = [t.strip() for t in tickers_input.split(',') if t.strip()]
+        print()
+        main_compare(tickers)
     else:
-        main_v2(ticker)
+        ticker = input("  종목 코드 입력 (Enter ticker, e.g., AAPL): ").strip().upper()
+        if not ticker:
+            ticker = "AAPL"
+            print(f"  기본값 사용 (Default): {ticker}")
+
+        # 차트 간격 선택
+        interval, period, short_ma, long_ma = _select_chart_interval()
+
+        print()
+
+        if mode == '1':
+            main_v1(ticker, interval=interval, period=period,
+                     short_ma=short_ma, long_ma=long_ma)
+        else:
+            main_v2(ticker, interval=interval, period=period,
+                     short_ma=short_ma, long_ma=long_ma)

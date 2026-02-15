@@ -107,7 +107,7 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
                 continue
 
             handle_end = min(handle_start + 10, len(df))
-            if handle_end - handle_start < 1:
+            if handle_end - handle_start < 2:
                 continue
 
             handle_lows = lows[handle_start:handle_end]
@@ -367,29 +367,33 @@ def detect_flat_base(df: pd.DataFrame, min_weeks: int = 5) -> List[Dict]:
     best_pattern = None
     best_quality = 0
 
-    for end in range(min_weeks, min(30, len(df))):
-        for start in range(max(0, end - 25), end - min_weeks + 1):
-            window_highs = highs[len(df) - end:len(df) - start] if start > 0 else highs[len(df) - end:]
-            window_lows = lows[len(df) - end:len(df) - start] if start > 0 else lows[len(df) - end:]
+    # 최근 30주 범위에서 Flat Base 탐색 (일관된 인덱싱 사용)
+    for actual_start_idx in range(max(20, len(df) - 30), len(df) - min_weeks):
+        for actual_end_idx in range(actual_start_idx + min_weeks, min(actual_start_idx + 26, len(df))):
+            window_highs = highs[actual_start_idx:actual_end_idx + 1]
+            window_lows = lows[actual_start_idx:actual_end_idx + 1]
 
             if len(window_highs) < min_weeks:
                 continue
 
             high = np.max(window_highs)
             low = np.min(window_lows)
+            if high == 0:
+                continue
             correction = ((high - low) / high) * 100
 
             if correction > 15:
                 continue
 
             # 이전에 20%+ 상승이 있었는지 확인
-            prior_end = len(df) - end
-            prior_start = max(0, prior_end - 20)
-            if prior_start >= prior_end:
+            prior_start = max(0, actual_start_idx - 20)
+            if prior_start >= actual_start_idx:
                 continue
 
-            prior_low = np.min(lows[prior_start:prior_end])
-            prior_gain = ((closes[prior_end] - prior_low) / prior_low) * 100
+            prior_low = np.min(lows[prior_start:actual_start_idx])
+            if prior_low == 0:
+                continue
+            prior_gain = ((closes[actual_start_idx] - prior_low) / prior_low) * 100
 
             if prior_gain < 20:
                 continue
@@ -407,8 +411,7 @@ def detect_flat_base(df: pd.DataFrame, min_weeks: int = 5) -> List[Dict]:
             if len(window_highs) >= 6:
                 quality += 5
 
-            actual_start_idx = len(df) - end
-            actual_end_idx = (len(df) - start - 1) if start > 0 else (len(df) - 1)
+            duration_weeks = actual_end_idx - actual_start_idx
 
             if quality > best_quality:
                 best_quality = quality
@@ -419,7 +422,7 @@ def detect_flat_base(df: pd.DataFrame, min_weeks: int = 5) -> List[Dict]:
                     'high': float(high),
                     'low': float(low),
                     'correction_pct': round(correction, 1),
-                    'duration_weeks': len(window_highs),
+                    'duration_weeks': duration_weeks,
                     'pivot_point': round(float(high), 2),
                     'prior_gain_pct': round(prior_gain, 1),
                     'quality_score': min(100, max(0, quality))
@@ -510,7 +513,7 @@ def analyze_volume(df: pd.DataFrame) -> Dict:
     Returns:
         거래량 분석 결과 딕셔너리
     """
-    vol_avg = df['Volume'].rolling(10).mean()  # 10주 평균 거래량
+    vol_avg = df['Volume'].fillna(0).rolling(10).mean()  # 10주 평균 거래량
 
     results = {
         'accumulation_weeks': 0,
@@ -528,11 +531,15 @@ def analyze_volume(df: pd.DataFrame) -> Dict:
         vol = df['Volume'].iloc[i]
         avg = vol_avg.iloc[i]
 
-        if pd.isna(avg) or avg == 0:
+        if pd.isna(avg) or avg == 0 or pd.isna(vol):
+            continue
+
+        prev_close = df['Close'].iloc[i - 1]
+        if pd.isna(prev_close) or prev_close == 0:
             continue
 
         vol_pct = ((vol - avg) / avg) * 100
-        price_change = ((df['Close'].iloc[i] - df['Close'].iloc[i - 1]) / df['Close'].iloc[i - 1]) * 100
+        price_change = ((df['Close'].iloc[i] - prev_close) / prev_close) * 100
 
         # 축적주 (상승 + 거래량 증가)
         if price_change > 0.5 and vol > avg:
@@ -727,10 +734,36 @@ def check_pattern_faults(pattern: Dict, df: pd.DataFrame) -> List[str]:
 # 8. 상대강도 (Relative Strength) 분석
 # ====================================================================
 
+def _get_benchmark_for_ticker(ticker: str) -> tuple:
+    """
+    종목 코드에 따라 적절한 벤치마크 지수 반환
+
+    Args:
+        ticker: 종목 코드
+
+    Returns:
+        (벤치마크 티커, 벤치마크 이름) 튜플
+    """
+    ticker_upper = ticker.upper()
+    # 한국 종목: .KS (KOSPI), .KQ (KOSDAQ)
+    if ticker_upper.endswith('.KS'):
+        return ('^KS11', 'KOSPI')
+    elif ticker_upper.endswith('.KQ'):
+        return ('^KQ11', 'KOSDAQ')
+    # 일본 종목
+    elif ticker_upper.endswith('.T'):
+        return ('^N225', 'Nikkei 225')
+    # 기본값: S&P 500
+    else:
+        return ('^GSPC', 'S&P 500')
+
+
 def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
     """
     오닐 스타일 상대강도(RS) 분석
-    S&P 500 대비 주가 성과를 측정
+    해당 시장 벤치마크 대비 주가 성과를 측정
+    - 미국 종목: S&P 500
+    - 한국 종목 (.KS): KOSPI, (.KQ): KOSDAQ
 
     오닐 기준:
     - RS Rating 85+ 이상만 매수 대상
@@ -744,8 +777,12 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
     Returns:
         RS 분석 결과 딕셔너리
     """
+    benchmark_ticker, benchmark_name = _get_benchmark_for_ticker(ticker)
+
     result = {
-        'rs_vs_sp500': {},
+        'benchmark': benchmark_name,
+        'rs_vs_benchmark': {},
+        'rs_vs_sp500': {},  # 하위 호환성 유지
         'rs_rating': None,
         'rs_trend': 'N/A',
         'rs_new_high': False,
@@ -753,20 +790,34 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
     }
 
     try:
-        # S&P 500 데이터 다운로드 (같은 기간)
+        # 벤치마크 데이터 다운로드 (같은 기간)
         start_date = df.index[0].strftime('%Y-%m-%d')
         end_date = df.index[-1].strftime('%Y-%m-%d')
 
-        sp500 = yf.Ticker("^GSPC")
-        sp_df = sp500.history(start=start_date, end=end_date, interval="1wk")
+        print(f"    (Benchmark: {benchmark_name} [{benchmark_ticker}])")
+        benchmark = yf.Ticker(benchmark_ticker)
+        sp_df = benchmark.history(start=start_date, end=end_date, interval="1wk")
 
         if sp_df.empty or len(sp_df) < 13:
-            result['interpretation'] = 'S&P 500 data unavailable for RS calculation'
+            result['interpretation'] = f'{benchmark_name} data unavailable for RS calculation'
             return result
 
-        # 공통 날짜 기준 정렬
-        stock_closes = df['Close']
-        sp_closes = sp_df['Close']
+        # 공통 날짜 기준 정렬 - 날짜 인덱스를 tz-naive로 통일하고 정렬
+        stock_idx = df.index.tz_localize(None) if df.index.tz is not None else df.index
+        sp_idx = sp_df.index.tz_localize(None) if sp_df.index.tz is not None else sp_df.index
+
+        stock_series = pd.Series(df['Close'].values, index=stock_idx).sort_index()
+        sp_series = pd.Series(sp_df['Close'].values, index=sp_idx).sort_index()
+
+        # 공통 날짜로 리샘플/정렬하여 길이 일치시킴
+        common_idx = stock_series.index.intersection(sp_series.index)
+        if len(common_idx) < 13:
+            # 날짜가 정확히 맞지 않을 수 있으므로, 가장 가까운 날짜로 매칭
+            stock_closes = stock_series
+            sp_closes = sp_series
+        else:
+            stock_closes = stock_series.loc[common_idx]
+            sp_closes = sp_series.loc[common_idx]
 
         # 기간별 수익률 계산
         periods = {
@@ -781,10 +832,17 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
                 sp_return = ((sp_closes.iloc[-1] - sp_closes.iloc[-weeks]) / sp_closes.iloc[-weeks]) * 100
                 outperformance = stock_return - sp_return
 
-                result['rs_vs_sp500'][label] = {
+                period_data = {
                     'stock_return': round(float(stock_return), 1),
-                    'sp500_return': round(float(sp_return), 1),
+                    'benchmark_return': round(float(sp_return), 1),
                     'outperformance': round(float(outperformance), 1)
+                }
+                result['rs_vs_benchmark'][label] = period_data
+                # 하위 호환성
+                result['rs_vs_sp500'][label] = {
+                    'stock_return': period_data['stock_return'],
+                    'sp500_return': period_data['benchmark_return'],
+                    'outperformance': period_data['outperformance']
                 }
 
         # RS Rating 추정 (오닐의 1-99 스케일 근사)
@@ -836,14 +894,15 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
         # 해석 생성
         rs = result['rs_rating']
         if rs is not None:
+            bm = benchmark_name
             if rs >= 85:
-                result['interpretation'] = f"STRONG LEADER (RS {rs}): Stock significantly outperforms the market. O'Neil says buy only RS 85+."
+                result['interpretation'] = f"STRONG LEADER (RS {rs} vs {bm}): Stock significantly outperforms the market. O'Neil says buy only RS 85+."
             elif rs >= 70:
-                result['interpretation'] = f"ABOVE AVERAGE (RS {rs}): Outperforming market but not in top tier. Watch for improvement."
+                result['interpretation'] = f"ABOVE AVERAGE (RS {rs} vs {bm}): Outperforming market but not in top tier. Watch for improvement."
             elif rs >= 50:
-                result['interpretation'] = f"AVERAGE (RS {rs}): Performing roughly in line with market. Not a leader."
+                result['interpretation'] = f"AVERAGE (RS {rs} vs {bm}): Performing roughly in line with market. Not a leader."
             else:
-                result['interpretation'] = f"LAGGARD (RS {rs}): Underperforming the market. O'Neil says never buy RS below 70."
+                result['interpretation'] = f"LAGGARD (RS {rs} vs {bm}): Underperforming the market. O'Neil says never buy RS below 70."
 
     except Exception as e:
         result['interpretation'] = f'RS calculation error: {str(e)}'
@@ -1007,14 +1066,17 @@ def _generate_summary(pattern: Optional[Dict], faults: List[str],
         lines.append(f"  [!] {stage['warning']}")
 
     # RS 분석
-    lines.append(f"\nRELATIVE STRENGTH (vs S&P 500):")
+    benchmark_name = rs.get('benchmark', 'S&P 500')
+    lines.append(f"\nRELATIVE STRENGTH (vs {benchmark_name}):")
     if rs.get('rs_rating') is not None:
         lines.append(f"RS Rating: {rs['rs_rating']}/99")
+        lines.append(f"Benchmark: {benchmark_name}")
         lines.append(f"RS Trend (10-week): {rs.get('rs_trend', 'N/A')}")
         lines.append(f"RS New High: {'Yes' if rs.get('rs_new_high') else 'No'}")
-        if rs.get('rs_vs_sp500'):
-            for period, data in rs['rs_vs_sp500'].items():
-                lines.append(f"  {period}: Stock {data['stock_return']:+.1f}% vs S&P {data['sp500_return']:+.1f}% (Outperformance: {data['outperformance']:+.1f}%)")
+        rs_data = rs.get('rs_vs_benchmark') or rs.get('rs_vs_sp500', {})
+        for period, data in rs_data.items():
+            bm_ret = data.get('benchmark_return', data.get('sp500_return', 0))
+            lines.append(f"  {period}: Stock {data['stock_return']:+.1f}% vs {benchmark_name} {bm_ret:+.1f}% (Outperformance: {data['outperformance']:+.1f}%)")
         if rs.get('interpretation'):
             lines.append(f"Assessment: {rs['interpretation']}")
     else:

@@ -2,10 +2,29 @@
 Version tracking for William O'Neil AI Investment Assistant
 """
 
-VERSION = "2.0.0"
-VERSION_NAME = "V2 - Enhanced Pattern Detection"
+VERSION = "2.1.0"
+VERSION_NAME = "V2.1 - Korean Report + Fundamentals + Compare"
 
 CHANGELOG = {
+    "2.1.0": {
+        "date": "2026-02-15",
+        "name": "V2.1 - Korean Report + Fundamentals + Compare",
+        "changes": [
+            "Fix: .env auto-loading with python-dotenv",
+            "Fix: detect_flat_base() index slicing consistency",
+            "Fix: detect_cup_with_handle() handle minimum 2-week data",
+            "Fix: analyze_relative_strength() date alignment for S&P 500 comparison",
+            "Fix: NaN/missing data handling in volume analysis",
+            "Fix: Emoji regex preserves Korean/Unicode text, removes only emojis",
+            "Korean report: AI analysis output in Korean (기술 용어는 영어 유지)",
+            "Korean UI: Bilingual menu and result headers (한영 병행)",
+            "Fundamental analysis: CAN SLIM scoring module (C/A/N/S/I)",
+            "V2 integration: Fundamentals included in AI prompt for comprehensive analysis",
+            "Multi-stock compare mode: [3] Compare multiple tickers with ranking table",
+            "Daily chart support: Weekly/Daily chart selection at startup",
+            "RS Rating display in analysis result output",
+        ]
+    },
     "2.0.0": {
         "date": "2026-02-12",
         "name": "V2 - Enhanced Pattern Detection",
