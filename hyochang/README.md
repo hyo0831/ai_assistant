@@ -1,233 +1,222 @@
 # 윌리엄 오닐 AI 투자 어시스턴트 (William O'Neil AI Investment Assistant)
 
+> **Version 2.1.0** | Google Gemini + CAN SLIM 방법론 기반 주식 분석 시스템
+
+---
+
 ## 📌 프로젝트 개요
 
 **Google Gemini API를 활용하여 주식 차트를 윌리엄 오닐(William J. O'Neil)의 CAN SLIM 방법론으로 자동 분석하고, 매수/관망/회피 판단을 제공하는 AI 기반 투자 분석 시스템**
 
+- 기술적 분석 (차트 패턴, 이동평균, RS Rating)과 기본적 분석 (CAN SLIM 펀더멘털)을 통합
+- AI가 O'Neil의 원문 규칙을 참조(RAG)하여 한국어로 종합 판단
+- 미국 및 한국(KS/KQ) 주식 모두 지원
+
 ---
 
-## 📂 디렉토리 구조 (Tree View)
+## 📂 디렉토리 구조
 
 ```
 hyochang/
 │
-├── main.py                  # 🎯 핵심 실행 파일 - 차트 생성 및 AI 분석
-│   ├── STEP 1: 차트 생성기 (The Eye)
-│   │   ├── fetch_stock_data()           # yfinance로 주가 데이터 다운로드
-│   │   ├── calculate_moving_averages()  # 10주/40주 이동평균 계산
-│   │   └── create_oneil_chart()         # 로그스케일 차트 생성 (mplfinance)
-│   │
-│   ├── STEP 2: 페르소나 프롬프트 (The Brain)
-│   │   └── WILLIAM_ONEIL_PERSONA        # CAN SLIM 분석 지침 (750+ 라인)
-│   │
-│   └── STEP 3: AI 분석 실행 (Execution)
-│       ├── analyze_chart_with_gemini()  # Gemini Vision API 호출
-│       ├── parse_pattern_data()         # JSON 패턴 데이터 추출
-│       └── create_annotated_chart()     # 패턴 시각화 차트 생성
+├── main.py                      # 메인 실행 파일 - 차트 생성 및 AI 분석
+├── pattern_detector.py          # 코드 기반 패턴 감지 엔진
+├── fundamental_analyzer.py      # CAN SLIM 펀더멘털 분석 오케스트레이터
+├── feedback_manager.py          # AI 분석 피드백 저장 관리
+├── version.py                   # 버전 정보 및 CHANGELOG
+├── requirements.txt             # 의존성 패키지 목록
+├── quick_test.py                # 사전 환경 검증 스크립트
+├── list_models.py               # 사용 가능한 Gemini 모델 목록 조회
 │
-├── quick_test.py            # ✅ 사전 검증 스크립트 - 라이브러리 & API 키 체크
-│   ├── check_imports()      # yfinance, mplfinance 등 설치 확인
-│   ├── check_api_key()      # GEMINI_API_KEY 환경변수 확인
-│   ├── test_yfinance()      # Yahoo Finance 연결 테스트
-│   └── test_gemini_api()    # Gemini API 연결 테스트
+├── canslim/                     # CAN SLIM 요소별 모듈
+│   ├── __init__.py
+│   ├── c_current_earnings.py    # C: 최근 분기 실적 (5개 분기 YoY 성장률)
+│   ├── a_annual_earnings.py     # A: 연간 실적 (5개년 추이, ROE, P/E)
+│   ├── n_new_catalyst.py        # N: 신제품/촉매 (Gemini AI 조사)
+│   ├── s_supply_demand.py       # S: 수급 (시가총액, 부채, 자사주)
+│   ├── l_leader_laggard.py      # L: 리더/래거드 (RS Rating)
+│   ├── i_institutional.py       # I: 기관 보유 현황
+│   └── m_market_direction.py    # M: 시장 방향 (Distribution Day)
 │
-├── list_models.py           # 📋 유틸리티 - 사용 가능한 Gemini 모델 목록 조회
-│
-├── chart.png                # 📊 생성된 기본 차트 (로그스케일 + 이동평균)
-└── chart_annotated.png      # 📊 AI 분석 결과가 표시된 패턴 차트
+├── prompt/                      # AI 시스템 프롬프트 (자동 생성)
+├── feedback/                    # 분석 피드백 저장 디렉토리
+└── chart.png                    # 생성된 분석 차트
 ```
 
 ---
 
-## 🔄 핵심 로직 흐름 (Data Flow)
+## 🔄 분석 모드
 
-### 전체 파이프라인
+### [1] V1 - Basic
+AI가 차트 이미지를 직접 보고 시각적으로 분석합니다.
+
+### [2] V2 - Enhanced (권장)
+코드가 패턴을 먼저 감지하고, 펀더멘털 분석 후 AI가 종합 해석합니다.
 
 ```
 [입력] 종목 코드 (Ticker)
    ↓
-[처리 1] 데이터 수집 (yfinance)
-   │     - 3년치 주봉 데이터 다운로드
-   │     - OHLCV (시가/고가/저가/종가/거래량) 추출
+[패턴 감지] pattern_detector.py
+   │     - Cup-with-Handle / Double Bottom / Flat Base / High Tight Flag
+   │     - RS Rating 계산 (미국: S&P500, 한국KS: KOSPI, 한국KQ: KOSDAQ)
+   │     - Volume Accumulation/Distribution 분석
+   │     - Base Stage 카운팅
    ↓
-[처리 2] 지표 계산 (pandas)
-   │     - 10주 이동평균 (MA10)
-   │     - 40주 이동평균 (MA40)
+[펀더멘털 분석] canslim/ 모듈들
+   │     - C: 5개 분기 YoY EPS 성장률 + 가속/감속 판단
+   │     - A: 5개년 연간 순이익 추이, ROE, P/E
+   │     - N: Gemini AI로 신제품/신경영진/촉매 조사
+   │     - S: 시가총액, 유통주식수, 부채비율, 자사주매입
+   │     - L: RS Rating, 섹터/산업군
+   │     - I: 기관 보유율 및 주요 기관 목록
+   │     - M: S&P500/NASDAQ Distribution Day, 추세
    ↓
-[처리 3] 차트 생성 (mplfinance)
-   │     - 로그 스케일 캔들차트
-   │     - 이동평균선 오버레이
-   │     - 거래량 바 차트
-   │     → chart.png 저장
+[차트 생성] mplfinance
+   │     - 로그스케일 캔들차트 + 이동평균선
+   │     - 패턴 감지 결과 오버레이
    ↓
-[처리 4] AI 비전 분석 (google.generativeai)
-   │     - Gemini 2.5 Flash 모델 사용
-   │     - 윌리엄 오닐 페르소나 프롬프트 주입
-   │     - 차트 이미지 + 프롬프트 전송
+[AI 종합 분석] Gemini
+   │     - 패턴 데이터 + 펀더멘털 데이터 + O'Neil 원문 규칙 통합
+   │     - 한국어로 CAN SLIM 8개 섹션 분석 출력
    ↓
-[처리 5] 결과 파싱 (re, json)
-   │     - JSON 패턴 데이터 추출
-   │     - 매수 포인트, 지지/저항선 추출
-   ↓
-[처리 6] 패턴 시각화 (matplotlib)
-   │     - Cup with Handle, Double Bottom 등 패턴 표시
-   │     - 매수/손절 라인 추가
-   │     → chart_annotated.png 저장
-   ↓
-[출력] 분석 리포트 + 시각화 차트
-   - BUY NOW / WATCH & WAIT / AVOID 판단
-   - 구체적인 가격 레벨 (Buy Point, Stop Loss)
+[출력] 한국어 투자 판단 리포트
+   - BUY / WATCH & WAIT / AVOID 결론
+   - RS Rating, 패턴 품질, 구체적 가격 레벨
 ```
 
-### 각 단계별 사용 라이브러리
-
-| 단계 | 기능 | 라이브러리 | 핵심 이유 |
-|------|------|-----------|----------|
-| 1️⃣ 데이터 수집 | Yahoo Finance에서 주가 데이터 다운로드 | `yfinance` | 무료 & 한국/미국 주식 모두 지원 |
-| 2️⃣ 지표 계산 | 이동평균선 계산 | `pandas` | 시계열 데이터 처리에 최적화 |
-| 3️⃣ 차트 생성 | 캔들스틱 차트 렌더링 | `mplfinance` | 금융 차트 전문 라이브러리 |
-| 4️⃣ AI 분석 | 이미지 기반 차트 분석 | `google.generativeai` | Gemini의 Vision 능력 활용 |
-| 5️⃣ 데이터 파싱 | JSON 추출 및 정규표현식 | `re`, `json` | AI 출력에서 구조화 데이터 추출 |
-| 6️⃣ 패턴 시각화 | 차트에 패턴 오버레이 | `matplotlib` | 저수준 그래픽 제어 |
+### [3] Compare - 다중 종목 비교
+여러 종목을 입력하면 RS Rating, 패턴, 펀더멘털 핵심 지표를 테이블로 비교합니다.
 
 ---
 
-## 🔍 함수별 상세 설명
+## 🔑 CAN SLIM 방법론
 
-### 📥 STEP 1: 데이터 수집 및 차트 생성
-
-#### `fetch_stock_data(ticker, period="3y", interval="1wk")`
-**역할:** Yahoo Finance API를 통해 주가 데이터 다운로드
-
-**파라미터:**
-- `ticker`: 종목 코드 (예: `"AAPL"`, `"005930.KS"` 삼성전자)
-- `period`: 데이터 기간 (기본 3년)
-- `interval`: 데이터 간격 (기본 `"1wk"` 주봉, `"1d"` 일봉 가능)
-
-**반환값:** pandas DataFrame (OHLCV 데이터)
-
-**팀원 참고:**
-- 한국 주식은 `.KS` 접미사 필요 (예: `"005930.KS"`)
-- 데이터가 없으면 `ValueError` 예외 발생
+| 요소 | 의미 | O'Neil 기준 |
+|------|------|------------|
+| **C** | Current Quarterly Earnings | 최근 분기 EPS YoY 25-50%+ 성장 (이상적: 40-500%+) |
+| **A** | Annual Earnings | 최근 3-5년 연속 25%+ 연간 성장, ROE 17%+ |
+| **N** | New Products/Management/Highs | 혁신적 신제품, 새 경영진, 신고가 돌파 |
+| **S** | Supply & Demand | 소형주 선호, 낮은 부채, 자사주매입은 긍정 신호 |
+| **L** | Leader or Laggard | RS Rating 85+ (시장 선도주), 산업군 상위 1-2위 |
+| **I** | Institutional Sponsorship | 우수 기관투자자 보유, 과다보유는 위험 신호 |
+| **M** | Market Direction | 시장 방향이 투자의 50%; Distribution Day 5개+ = 정점 신호 |
 
 ---
 
-#### `calculate_moving_averages(df, short_window=10, long_window=40)`
-**역할:** 이동평균선 계산 (윌리엄 오닐의 핵심 지표)
+## 🔍 핵심 기능 상세
 
-**왜 10주/40주인가?**
-- **10주 이동평균**: 단기 추세 파악 (일봉의 50일 이평에 해당)
-- **40주 이동평균**: 장기 추세 및 강세장 확인 (일봉의 200일 이평에 해당)
-- 윌리엄 오닐의 연구: 강세주는 10주선 위에서 거래됨
+### RS Rating (Relative Strength)
+- 종목 코드 접미사에 따라 자동으로 벤치마크 선택
+  - `.KS` → KOSPI (`^KS11`)
+  - `.KQ` → KOSDAQ (`^KQ11`)
+  - `.T` → Nikkei (`^N225`)
+  - 기본 → S&P 500 (`^GSPC`)
+- 1~99 점수: 99 = 시장 상위 1%
 
-**파라미터:**
-- `short_window`: 단기 이동평균 기간 (주봉: 10, 일봉: 50)
-- `long_window`: 장기 이동평균 기간 (주봉: 40, 일봉: 200)
+### Distribution Day (분산일)
+- 정의: 지수가 전일 대비 -0.2% 이상 하락 + 전일보다 높은 거래량
+- 의미: 기관들이 대량 매도하는 날 → "큰손들이 빠져나가는 발자국"
+- 4~5주 내 5개 이상 → O'Neil 시장 정점(Market Top) 경고
 
----
+### 패턴 감지 엔진
+- **Cup-with-Handle**: 7-65주 형성, 핸들 8-12% 조정
+- **Double Bottom**: W자형, 두 번째 저점에서 거래량 감소
+- **Flat Base**: 5주+ 횡보, 15% 이내 조정
+- **High Tight Flag**: 8주 내 100%+ 급등 후 10-25% 조정
 
-#### `create_oneil_chart(ticker, df, output_path="chart.png", interval="1wk")`
-**역할:** 윌리엄 오닐 스타일의 주봉 차트 생성
-
-**핵심 설정 및 이유:**
-
-1. **로그 스케일 (`yscale='log'`)** - [main.py:138](main.py#L138)
-   - **왜 사용?** 백분율 변화를 시각화하기 위함
-   - 예시: $10 → $20 (100% 상승)과 $100 → $200 (100% 상승)이 같은 높이로 표시됨
-   - 윌리엄 오닐: "주식은 퍼센트로 움직인다"
-
-2. **Yahoo 스타일 (`base_mpf_style='yahoo'`)** - [main.py:115](main.py#L115)
-   - 깔끔하고 전문적인 차트 스타일
-   - 상승 캔들 = 녹색, 하락 캔들 = 빨강
-
-3. **거래량 패널 (`volume=True`)** - [main.py:135](main.py#L135)
-   - 거래량은 매수 타이밍 판단의 핵심
-   - 돌파 시 거래량 급증 = 기관 매수 신호
-
-**출력:** `chart.png` 파일 저장 (해상도 150 DPI)
+### RAG (Retrieval-Augmented Generation)
+- 각 CAN SLIM 모듈에 O'Neil 원문 규칙이 내장되어 있음
+- AI가 실제 데이터를 원문 기준으로 직접 판단 (점수 산출 없음)
 
 ---
 
-### 🧠 STEP 2: AI 페르소나 시스템 프롬프트
+## ⚙️ 설치 및 실행
 
-#### `WILLIAM_ONEIL_PERSONA` - [main.py:157-215](main.py#L157-L215)
-**역할:** Gemini AI에게 윌리엄 오닐의 사고방식을 주입하는 750줄 분량의 상세 프롬프트
+### 1. 환경 설정
 
-**구조:**
-1. **페르소나 설정**: "당신은 Investor's Business Daily 창립자 윌리엄 오닐입니다"
-2. **분석 프레임워크 (CAN SLIM)**:
-   - Trend Analysis (추세 분석)
-   - Chart Pattern Recognition (패턴 인식)
-   - Volume Analysis (거래량 분석)
-   - Buy Point Identification (매수 포인트)
-   - Risk Assessment (리스크 관리)
-3. **커뮤니케이션 스타일**: 자신감 있고 단호한 판단
+```bash
+# 가상환경 생성 및 활성화
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate   # Windows
 
-**핵심 패턴:**
-- **Cup with Handle** (컵 앤 핸들): 7-65주 형성, 핸들 1-5주
-- **Double Bottom** (W자형): 두 번째 저점에서 거래량 감소
-- **Flat Base** (평평한 베이스): 5주 이상 15% 이내 횡보
-
----
-
-### 🤖 STEP 3: AI 분석 실행
-
-#### `analyze_chart_with_gemini(image_path, ticker)`
-**역할:** Gemini 2.5 Flash 모델에 차트 이미지 전송 및 분석 수행
-
-**핵심 로직:**
-1. [main.py:239-242](main.py#L239-L242): `system_instruction`으로 윌리엄 오닐 페르소나 주입
-2. [main.py:245](main.py#L245): PIL을 사용해 차트 이미지 로드
-3. [main.py:248-305](main.py#L248-L305): 분석 프롬프트 작성
-   - PART 1: JSON 형식 패턴 데이터 요청
-   - PART 2: 마크다운 형식 상세 분석
-4. [main.py:308](main.py#L308): `model.generate_content([프롬프트, 이미지])` 멀티모달 요청
-
-**반환값:** AI 분석 텍스트 (JSON + Markdown)
-
-**주의사항:**
-- Windows 콘솔 호환성을 위해 이모지 제거 ([main.py:313](main.py#L313))
-
-
-## 📊 사용 예시
-
-### 미국 주식 분석
-```python
-TICKER = "NVDA"  # 엔비디아
-main(TICKER)
+# 의존성 설치
+pip install -r requirements.txt
 ```
 
-### 한국 주식 분석
-```python
-TICKER = "005930.KS"  # 삼성전자
-main(TICKER)
+### 2. API 키 설정
+
+`.env` 파일 생성:
+
+```
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-### 일봉 차트로 변경
-[main.py:612-616](main.py#L612-L616)에서:
-```python
-interval = "1d"  # "1wk" → "1d"로 변경
-df = fetch_stock_data(ticker, period="1y", interval=interval)
-df = calculate_moving_averages(df, short_window=50, long_window=200)  # 50일/200일 이평
+### 3. 실행
+
+```bash
+python main.py
+```
+
+### 4. 사전 검증
+
+```bash
+python quick_test.py
 ```
 
 ---
 
-## 🎓 참고 자료
+## 📊 분석 예시
 
-- **윌리엄 오닐 투자법:** 『How to Make Money in Stocks』
-- **CAN SLIM 방법론:** https://www.investors.com/ibd-university/can-slim/
-- **Gemini API 문서:** https://ai.google.dev/docs
-- **yfinance 문서:** https://pypi.org/project/yfinance/
+```
+종목 코드 입력: NVDA
+차트 유형: W (주봉)
+
+→ RS Rating: 87/99 | Trend: RISING
+→ Pattern: Cup-with-Handle (Quality: 85/100)
+→ Buy Point: $138.42
+→ Base Stage: 2
+→ 최종 판단: BUY NOW (시장 선도주, 2차 베이스 돌파)
+```
+
+```
+종목 코드 입력: 005930.KS  (삼성전자)
+벤치마크: KOSPI 자동 선택
+```
 
 ---
 
-## 📝 라이센스 및 면책
+## 📦 주요 의존성
 
-이 프로젝트는 교육 목적으로 작성되었습니다.
-투자 판단은 본인 책임이며, AI 분석 결과는 참고용입니다.
+| 라이브러리 | 용도 |
+|-----------|------|
+| `yfinance` | 주가 데이터 수집 (Yahoo Finance) |
+| `mplfinance` | 금융 차트 생성 |
+| `pandas` | 데이터 처리 및 시계열 분석 |
+| `google-generativeai` | Gemini AI API |
+| `python-dotenv` | `.env` 파일 자동 로딩 |
+| `Pillow` | 차트 이미지 처리 |
 
+---
+
+## 📝 버전 히스토리
+
+| 버전 | 날짜 | 주요 변경사항 |
+|------|------|-------------|
+| **v2.1.0** | 2026-02-16 | CAN SLIM 모듈화, 한국어 리포트, RS 벤치마크 자동선택, Distribution Day, 다중종목 비교 |
+| **v2.0.0** | 2026-02-05 | V2 패턴 감지 엔진 추가, 펀더멘털 분석 통합 |
+| **v1.0.0** | 2026-01-01 | V1 기본 이미지 분석 |
+
+---
+
+## ⚠️ 면책 조항
+
+이 프로젝트는 **교육 목적**으로 작성되었습니다.
+투자 판단은 본인 책임이며, AI 분석 결과는 **참고용**입니다.
+실제 투자 전 반드시 본인의 독립적인 판단과 전문가 조언을 구하십시오.
+
+---
 
 **Created by:** hyochang team
-**Last Updated:** 2026-02-05
+**Last Updated:** 2026-02-16
 **License:** MIT (Educational Purpose)
