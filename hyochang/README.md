@@ -11,6 +11,7 @@
 - 기술적 분석 (차트 패턴, 이동평균, RS Rating)과 기본적 분석 (CAN SLIM 펀더멘털)을 통합
 - AI가 O'Neil의 원문 규칙을 참조(RAG)하여 한국어로 종합 판단
 - 미국 및 한국(KS/KQ) 주식 모두 지원
+- **FastAPI 백엔드 연동을 위해 `core/` 모듈로 분리 완료**
 
 ---
 
@@ -19,28 +20,38 @@
 ```
 hyochang/
 │
-├── main.py                      # 메인 실행 파일 - 차트 생성 및 AI 분석
-├── pattern_detector.py          # 코드 기반 패턴 감지 엔진
-├── fundamental_analyzer.py      # CAN SLIM 펀더멘털 분석 오케스트레이터
-├── feedback_manager.py          # AI 분석 피드백 저장 관리
-├── version.py                   # 버전 정보 및 CHANGELOG
-├── requirements.txt             # 의존성 패키지 목록
-├── quick_test.py                # 사전 환경 검증 스크립트
-├── list_models.py               # 사용 가능한 Gemini 모델 목록 조회
+├── main.py                      # 진입점 (하위 호환 re-export 레이어)
+├── cli.py                       # CLI 실행 로직 (main_v1, main_v2, main_compare)
+├── requirements.txt
 │
-├── canslim/                     # CAN SLIM 요소별 모듈
-│   ├── __init__.py
-│   ├── c_current_earnings.py    # C: 최근 분기 실적 (5개 분기 YoY 성장률)
-│   ├── a_annual_earnings.py     # A: 연간 실적 (5개년 추이, ROE, P/E)
+├── core/                        # 핵심 비즈니스 로직 (FastAPI에서 직접 import 가능)
+│   ├── config.py                # 환경변수, 경로 상수
+│   ├── data_fetcher.py          # 주가 데이터 수집, 이동평균 계산
+│   ├── chart_generator.py       # 차트 생성 (O'Neil 스타일)
+│   ├── ai_analyzer.py           # Gemini AI 분석 (V1, V2)
+│   ├── result_manager.py        # 분석 결과 JSON 저장
+│   ├── pattern_detector.py      # 코드 기반 패턴 감지 엔진
+│   ├── fundamental_analyzer.py  # CAN SLIM 펀더멘털 오케스트레이터
+│   ├── feedback_manager.py      # AI 분석 피드백 저장/학습
+│   ├── history_analyzer.py      # 과거 분석 기록 컨텍스트 생성
+│   ├── system_prompt.py         # Gemini 시스템 프롬프트 (O'Neil 페르소나)
+│   └── version.py               # 버전 정보
+│
+├── canslim/                     # CAN SLIM 요소별 데이터 수집 모듈
+│   ├── c_current_earnings.py    # C: 최근 분기 실적
+│   ├── a_annual_earnings.py     # A: 연간 실적
 │   ├── n_new_catalyst.py        # N: 신제품/촉매 (Gemini AI 조사)
-│   ├── s_supply_demand.py       # S: 수급 (시가총액, 부채, 자사주)
-│   ├── l_leader_laggard.py      # L: 리더/래거드 (RS Rating)
-│   ├── i_institutional.py       # I: 기관 보유 현황
+│   ├── s_supply_demand.py       # S: 수급
+│   ├── l_leader_laggard.py      # L: RS Rating
+│   ├── i_institutional.py       # I: 기관 보유
 │   └── m_market_direction.py    # M: 시장 방향 (Distribution Day)
 │
-├── prompt/                      # AI 시스템 프롬프트 (자동 생성)
-├── feedback/                    # 분석 피드백 저장 디렉토리
-└── chart.png                    # 생성된 분석 차트
+├── results/                     # 분석 결과 저장 (chart.png + JSON 자동 생성)
+├── feedback/                    # 피드백 데이터
+├── scripts/                     # 유틸리티 스크립트
+│   ├── quick_test.py            # 환경 사전 검증
+│   └── list_models.py           # 사용 가능한 Gemini 모델 조회
+└── prompt/                      # AI 프롬프트 문서
 ```
 
 ---
@@ -56,7 +67,7 @@ AI가 차트 이미지를 직접 보고 시각적으로 분석합니다.
 ```
 [입력] 종목 코드 (Ticker)
    ↓
-[패턴 감지] pattern_detector.py
+[패턴 감지] core/pattern_detector.py
    │     - Cup-with-Handle / Double Bottom / Flat Base / High Tight Flag
    │     - RS Rating 계산 (미국: S&P500, 한국KS: KOSPI, 한국KQ: KOSDAQ)
    │     - Volume Accumulation/Distribution 분석
@@ -71,16 +82,14 @@ AI가 차트 이미지를 직접 보고 시각적으로 분석합니다.
    │     - I: 기관 보유율 및 주요 기관 목록
    │     - M: S&P500/NASDAQ Distribution Day, 추세
    ↓
-[차트 생성] mplfinance
-   │     - 로그스케일 캔들차트 + 이동평균선
-   │     - 패턴 감지 결과 오버레이
+[차트 생성] core/chart_generator.py  →  results/chart.png
    ↓
-[AI 종합 분석] Gemini
+[AI 종합 분석] core/ai_analyzer.py (Gemini gemini-2.5-flash)
    │     - 패턴 데이터 + 펀더멘털 데이터 + O'Neil 원문 규칙 통합
    │     - 한국어로 CAN SLIM 8개 섹션 분석 출력
    ↓
-[출력] 한국어 투자 판단 리포트
-   - BUY / WATCH & WAIT / AVOID 결론
+[출력] 한국어 투자 판단 리포트  →  results/{TICKER}_{TIMESTAMP}.json
+   - BUY NOW / WATCH & WAIT / AVOID 결론
    - RS Rating, 패턴 품질, 구체적 가격 레벨
 ```
 
@@ -89,44 +98,155 @@ AI가 차트 이미지를 직접 보고 시각적으로 분석합니다.
 
 ---
 
-## 🔑 CAN SLIM 방법론
+## 🔌 FastAPI 연동 가이드 (백엔드 개발자용)
 
-| 요소 | 의미 | O'Neil 기준 |
-|------|------|------------|
-| **C** | Current Quarterly Earnings | 최근 분기 EPS YoY 25-50%+ 성장 (이상적: 40-500%+) |
-| **A** | Annual Earnings | 최근 3-5년 연속 25%+ 연간 성장, ROE 17%+ |
-| **N** | New Products/Management/Highs | 혁신적 신제품, 새 경영진, 신고가 돌파 |
-| **S** | Supply & Demand | 소형주 선호, 낮은 부채, 자사주매입은 긍정 신호 |
-| **L** | Leader or Laggard | RS Rating 85+ (시장 선도주), 산업군 상위 1-2위 |
-| **I** | Institutional Sponsorship | 우수 기관투자자 보유, 과다보유는 위험 신호 |
-| **M** | Market Direction | 시장 방향이 투자의 50%; Distribution Day 5개+ = 정점 신호 |
+`core/` 모듈은 FastAPI에서 바로 import해서 사용할 수 있습니다.
 
----
+### 핵심 함수 인터페이스
 
-## 🔍 핵심 기능 상세
+#### 1. 데이터 수집 — `core/data_fetcher.py`
 
-### RS Rating (Relative Strength)
-- 종목 코드 접미사에 따라 자동으로 벤치마크 선택
-  - `.KS` → KOSPI (`^KS11`)
-  - `.KQ` → KOSDAQ (`^KQ11`)
-  - `.T` → Nikkei (`^N225`)
-  - 기본 → S&P 500 (`^GSPC`)
-- 1~99 점수: 99 = 시장 상위 1%
+```python
+from core.data_fetcher import fetch_stock_data, calculate_moving_averages
 
-### Distribution Day (분산일)
-- 정의: 지수가 전일 대비 -0.2% 이상 하락 + 전일보다 높은 거래량
-- 의미: 기관들이 대량 매도하는 날 → "큰손들이 빠져나가는 발자국"
-- 4~5주 내 5개 이상 → O'Neil 시장 정점(Market Top) 경고
+df = fetch_stock_data(
+    ticker="AAPL",       # str: 종목 코드 (e.g. "AAPL", "005930.KS")
+    period="3y",         # str: 기간 ("1y", "2y", "3y")
+    interval="1wk"       # str: "1wk" (주봉) | "1d" (일봉)
+)
+# 반환: pandas.DataFrame (OHLCV)
 
-### 패턴 감지 엔진
-- **Cup-with-Handle**: 7-65주 형성, 핸들 8-12% 조정
-- **Double Bottom**: W자형, 두 번째 저점에서 거래량 감소
-- **Flat Base**: 5주+ 횡보, 15% 이내 조정
-- **High Tight Flag**: 8주 내 100%+ 급등 후 10-25% 조정
+df = calculate_moving_averages(
+    df=df,
+    short_window=10,     # int: 단기 MA (주봉:10, 일봉:50)
+    long_window=40       # int: 장기 MA (주봉:40, 일봉:200)
+)
+# 반환: MA50, MA200 컬럼이 추가된 DataFrame
+```
 
-### RAG (Retrieval-Augmented Generation)
-- 각 CAN SLIM 모듈에 O'Neil 원문 규칙이 내장되어 있음
-- AI가 실제 데이터를 원문 기준으로 직접 판단 (점수 산출 없음)
+#### 2. 차트 생성 — `core/chart_generator.py`
+
+```python
+from core.chart_generator import create_oneil_chart
+
+create_oneil_chart(
+    ticker="AAPL",
+    df=df,
+    output_path="results/chart.png",  # str: 저장 경로
+    interval="1wk",                   # str: "1wk" | "1d"
+    pivot_info={                      # dict | None: 피봇 포인트 표시
+        "price": 150.0,
+        "date": "2024-03-01",
+        "pattern_type": "Cup with Handle"
+    }
+)
+# 반환: None (output_path에 파일 저장)
+```
+
+#### 3. 패턴 감지 — `core/pattern_detector.py`
+
+```python
+from core.pattern_detector import run_pattern_detection
+
+pattern_result = run_pattern_detection(df, ticker="AAPL")
+# 반환: dict
+# {
+#   "best_pattern": {
+#     "type": "Cup with Handle",
+#     "quality_score": 82,        # 0-100
+#     "pivot_point": 182.5,
+#     "right_peak_date": "2024-03-01"
+#   } | None,
+#   "pattern_faults": ["handle too deep", ...],
+#   "base_stage": {"estimated_stage": 2},
+#   "volume_analysis": {"recent_volume_trend": "ACCUMULATION"},
+#   "rs_analysis": {
+#     "rs_rating": 87,            # 1-99
+#     "rs_trend": "RISING",
+#     "rs_new_high": True,
+#     "interpretation": "..."
+#   },
+#   "summary": "..."              # AI 프롬프트용 요약 텍스트
+# }
+```
+
+#### 4. 펀더멘털 분석 — `core/fundamental_analyzer.py`
+
+```python
+from core.fundamental_analyzer import analyze_fundamentals
+
+fundamental_result = analyze_fundamentals(
+    ticker="AAPL",
+    rs_analysis=pattern_result["rs_analysis"]  # dict | None
+)
+# 반환: dict
+# {
+#   "prompt_text": "...",   # AI에 전달할 CAN SLIM 데이터 텍스트
+#   "error": None | "..."
+# }
+```
+
+#### 5. AI 분석 (V2) — `core/ai_analyzer.py`
+
+```python
+from core.ai_analyzer import analyze_chart_v2
+
+analysis = analyze_chart_v2(
+    image_path="results/chart.png",  # str: 차트 이미지 경로
+    ticker="AAPL",
+    df=df,                           # pandas.DataFrame
+    pattern_result=pattern_result,   # dict: run_pattern_detection() 결과
+    feedback_manager=None,           # FeedbackManager | None
+    fundamental_result=fundamental_result,  # dict | None
+    interval="1wk",                  # str: "1wk" | "1d"
+    history_context=""               # str: 과거 분석 컨텍스트 (선택)
+)
+# 반환: str (마크다운 형식의 한국어 분석 텍스트)
+# 포함 내용: Trend, Pattern, Volume, CAN SLIM 평가, Buy Point, Risk, FINAL VERDICT
+```
+
+#### 6. 결과 저장 — `core/result_manager.py`
+
+```python
+from core.result_manager import save_analysis_result
+
+filepath = save_analysis_result(
+    ticker="AAPL",
+    analysis=analysis,               # str: AI 분석 텍스트
+    interval="1wk",
+    pattern_result=pattern_result,   # dict | None
+    fundamental_result=fundamental_result,  # dict | None
+    rs_info=pattern_result["rs_analysis"]   # dict | None
+)
+# 반환: str (저장된 JSON 파일 경로)
+# 저장 위치: results/{TICKER}_{YYYY-MM-DD_HH-MM-SS}.json
+```
+
+### 전체 V2 분석 플로우 예시 (FastAPI route용)
+
+```python
+from core.data_fetcher import fetch_stock_data, calculate_moving_averages
+from core.chart_generator import create_oneil_chart
+from core.pattern_detector import run_pattern_detection
+from core.fundamental_analyzer import analyze_fundamentals
+from core.ai_analyzer import analyze_chart_v2
+from core.result_manager import save_analysis_result
+from core.config import CHART_OUTPUT_PATH
+
+async def analyze(ticker: str, interval: str = "1wk"):
+    df = fetch_stock_data(ticker, interval=interval)
+    df = calculate_moving_averages(df)
+    pattern_result = run_pattern_detection(df, ticker)
+    fundamental_result = analyze_fundamentals(ticker, rs_analysis=pattern_result["rs_analysis"])
+    create_oneil_chart(ticker, df, interval=interval)
+    analysis = analyze_chart_v2(CHART_OUTPUT_PATH, ticker, df, pattern_result,
+                                 fundamental_result=fundamental_result, interval=interval)
+    filepath = save_analysis_result(ticker, analysis, interval, pattern_result, fundamental_result)
+    return {"analysis": analysis, "result_file": filepath}
+```
+
+> **주의:** `analyze_chart_v2`는 Gemini API를 호출하므로 **10~30초** 소요됩니다.
+> FastAPI에서는 `BackgroundTasks` 또는 `asyncio.to_thread()`로 비동기 처리를 권장합니다.
 
 ---
 
@@ -135,54 +255,68 @@ AI가 차트 이미지를 직접 보고 시각적으로 분석합니다.
 ### 1. 환경 설정
 
 ```bash
-# 가상환경 생성 및 활성화
 python -m venv venv
 source venv/bin/activate  # macOS/Linux
 # venv\Scripts\activate   # Windows
 
-# 의존성 설치
 pip install -r requirements.txt
 ```
 
 ### 2. API 키 설정
 
-`.env` 파일 생성:
-
+```bash
+cp .env.example .env
+# .env 파일을 열고 GEMINI_API_KEY 입력
 ```
-GEMINI_API_KEY=your_gemini_api_key_here
-```
 
-### 3. 실행
+### 3. CLI 실행
 
 ```bash
 python main.py
 ```
 
-### 4. 사전 검증
+### 4. 사전 환경 검증
 
 ```bash
-python quick_test.py
+python scripts/quick_test.py
 ```
 
 ---
 
-## 📊 분석 예시
+## 📊 분석 결과 형식
 
-```
-종목 코드 입력: NVDA
-차트 유형: W (주봉)
+`results/{TICKER}_{TIMESTAMP}.json`
 
-→ RS Rating: 87/99 | Trend: RISING
-→ Pattern: Cup-with-Handle (Quality: 85/100)
-→ Buy Point: $138.42
-→ Base Stage: 2
-→ 최종 판단: BUY NOW (시장 선도주, 2차 베이스 돌파)
+```json
+{
+  "ticker": "AAPL",
+  "timestamp": "2026-02-16_20-34-36",
+  "interval": "weekly",
+  "verdict": "WATCH & WAIT",
+  "ai_analysis": "## CHART ANALYSIS: AAPL\n...",
+  "pattern_detection": { ... },
+  "fundamental": { ... },
+  "rs_info": {
+    "rs_rating": 72,
+    "rs_trend": "NEUTRAL",
+    "rs_new_high": false
+  }
+}
 ```
 
-```
-종목 코드 입력: 005930.KS  (삼성전자)
-벤치마크: KOSPI 자동 선택
-```
+---
+
+## 🔑 CAN SLIM 방법론
+
+| 요소 | 의미 | O'Neil 기준 |
+|------|------|------------|
+| **C** | Current Quarterly Earnings | 최근 분기 EPS YoY 25-50%+ 성장 |
+| **A** | Annual Earnings | 최근 3-5년 연속 25%+ 연간 성장, ROE 17%+ |
+| **N** | New Products/Management/Highs | 혁신적 신제품, 새 경영진, 신고가 돌파 |
+| **S** | Supply & Demand | 소형주 선호, 낮은 부채, 자사주매입은 긍정 신호 |
+| **L** | Leader or Laggard | RS Rating 85+ (시장 선도주) |
+| **I** | Institutional Sponsorship | 우수 기관투자자 보유, 과다보유는 위험 신호 |
+| **M** | Market Direction | 시장 방향이 투자의 50%; Distribution Day 5개+ = 정점 신호 |
 
 ---
 
@@ -193,7 +327,7 @@ python quick_test.py
 | `yfinance` | 주가 데이터 수집 (Yahoo Finance) |
 | `mplfinance` | 금융 차트 생성 |
 | `pandas` | 데이터 처리 및 시계열 분석 |
-| `google-generativeai` | Gemini AI API |
+| `google-genai` | Gemini AI API |
 | `python-dotenv` | `.env` 파일 자동 로딩 |
 | `Pillow` | 차트 이미지 처리 |
 
@@ -203,7 +337,7 @@ python quick_test.py
 
 | 버전 | 날짜 | 주요 변경사항 |
 |------|------|-------------|
-| **v2.1.0** | 2026-02-16 | CAN SLIM 모듈화, 한국어 리포트, RS 벤치마크 자동선택, Distribution Day, 다중종목 비교 |
+| **v2.1.0** | 2026-02-16 | `core/` 모듈 분리, FastAPI 연동 준비, 결과물 `results/` 통합 저장 |
 | **v2.0.0** | 2026-02-05 | V2 패턴 감지 엔진 추가, 펀더멘털 분석 통합 |
 | **v1.0.0** | 2026-01-01 | V1 기본 이미지 분석 |
 

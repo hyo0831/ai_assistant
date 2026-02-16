@@ -71,14 +71,13 @@ def analyze(stock, info: dict) -> Dict:
 def _query_ai_for_catalyst(ticker: str, company_name: str) -> Optional[Dict]:
     """Gemini AI에게 해당 기업의 최근 신제품/서비스/촉매 조사 요청"""
     try:
-        import google.generativeai as genai
+        from google import genai
 
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             return None
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name='gemini-2.5-flash')
+        client = genai.Client(api_key=api_key)
 
         prompt = f"""You are analyzing "{company_name}" (ticker: {ticker}) for William O'Neil's "N" (New) factor.
 
@@ -98,7 +97,10 @@ Respond ONLY with a JSON object:
 }}"""
 
         print(f"  [*] AI researching 'New' catalysts for {ticker}...")
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
 
         text = response.text.strip()
         if text.startswith('```'):
