@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 투자 전략 스토리보드</title>
+    <!-- 
+      [AI 설정 가이드]
+      - apiKey: Gemini API 키를 입력하세요 (현재는 빈 문자열).
+      - aiModel: 사용할 모델명을 입력하세요 (예: 'gemini-2.5-flash-preview-09-2025').
+    -->
+    <script>
+        const apiKey = "AIzaSyAdMfbdeWvw9MMFNsXILvIzjBBf7Hb1sq4"; // 여기에 API 키를 입력하세요.
+        const aiModel = "gemini-2.5-flash-preview-09-2025"; // 사용할 모델명입니다.
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .animate-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4f46e5;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-[#f8fafc] text-slate-900 p-4 md:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+        <!-- Header -->
+        <div class="bg-[#1e293b] p-6 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i data-lucide="trending-up" class="text-emerald-400"></i> AI 투자 전략 스토리보드
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">데이터 기반 맞춤형 투자 시나리오 생성기</p>
+            </div>
+            <div class="hidden md:block text-right">
+                <span class="text-[10px] bg-slate-700 px-2 py-1 rounded-md text-slate-300">v2.5 Professional</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col md:flex-row">
+            <!-- Setup Panel (Left) -->
+            <div class="w-full md:w-80 bg-slate-50 p-6 border-r border-slate-100 overflow-y-auto max-h-[850px]">
+                <h2 class="text-sm font-bold text-slate-500 uppercase mb-6 flex items-center gap-2">
+                    <i data-lucide="briefcase" class="w-4 h-4"></i> 투자자 설정
+                </h2>
+                
+                <div class="space-y-6">
+                    <!-- Market Selection -->
+                    <div>
+                        <label class="text-xs font-bold text-slate-600 mb-2 block">투자 시장 선택</label>
+                        <div class="grid grid-cols-2 gap-2 mb-2">
+                            <button id="marketDomestic" class="market-region-btn px-3 py-2 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md">국내 시장</button>
+                            <button id="marketOverseas" class="market-region-btn px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-500 border border-slate-200">해외 시장</button>
+                        </div>
+                        <select id="marketDetail" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm">
+                            <option value="KOSPI">코스피 (KOSPI)</option>
+                            <option value="KOSDAQ">코스닥 (KOSDAQ)</option>
+                        </select>
+                    </div>
+
+                    <!-- Investment Bot Selection Added -->
+                    <div>
+                        <label class="text-xs font-bold text-slate-600 mb-2 block">분석 모델 (투자 봇)</label>
+                        <select id="investorBot" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium">
+                            <option value="buffett">워런 버핏 (가치 투자)</option>
+                            <option value="oneil">윌리엄 오닐 (CAN SLIM/성장주)</option>
+                            <option value="chaewon">이채원 (국내 가치투자 대가)</option>
+                        </select>
+                        <p id="botDesc" class="text-[10px] text-slate-400 mt-1 italic">우량주와 복리의 마법을 중시합니다.</p>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-600 mb-2 block flex justify-between">
+                            공격 지수 (Risk) <span id="riskValueDisplay">5 / 10</span>
+                        </label>
+                        <input type="range" id="riskTolerance" min="0" max="10" step="1" value="5"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-400 mt-1 uppercase">
+                            <span>Conservative</span>
+                            <span>Aggressive</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-600 mb-2 block">매매 금액 / 예산</label>
+                        <input type="number" id="budget" value="10000000"
+                            class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold">
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-600 mb-2 block">투자 기간</label>
+                        <select id="duration" class="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm">
+                            <option value="1m">단편 (1개월 미만)</option>
+                            <option value="6m" selected>중편 (6개월 내외)</option>
+                            <option value="1y">장편 (1년 이상)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-slate-600 mb-2 block">목표 유형</label>
+                        <div class="grid grid-cols-1 gap-2" id="goalButtons">
+                            <button data-goal="growth" class="goal-btn text-left px-3 py-2 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md">자산 성장</button>
+                            <button data-goal="dividend" class="goal-btn text-left px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-500 border border-slate-200">현금 흐름(배당)</button>
+                            <button data-goal="trading" class="goal-btn text-left px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-500 border border-slate-200">단기 매매 차익</button>
+                        </div>
+                    </div>
+
+                    <button id="generateBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-100">
+                        <i data-lucide="zap" class="w-4 h-4"></i> 분석 및 시나리오 생성
+                    </button>
+                </div>
+            </div>
+
+            <!-- Result Panel (Right) -->
+            <div id="resultContent" class="flex-1 p-6 md:p-8 min-h-[500px]">
+                <!-- Initial State -->
+                <div id="setupState" class="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+                    <i data-lucide="pie-chart" class="w-16 h-16 text-slate-200"></i>
+                    <p class="text-slate-400">설정값을 입력하고 분석을 시작하세요.<br>데이터와 스토리가 결합된 전략이 출력됩니다.</p>
+                </div>
+
+                <!-- Loading State (Hidden) -->
+                <div id="loadingState" class="hidden h-full flex flex-col items-center justify-center text-center space-y-6">
+                    <div class="relative">
+                        <div class="w-20 h-20 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                        <div class="absolute inset-0 flex items-center justify-center font-bold text-indigo-600 text-sm">AI</div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold">전략 수립 중...</h3>
+                        <div class="text-sm text-slate-400 mt-2 space-y-1">
+                            <p id="loadingMarketText">• 선택한 시장 데이터 대조 중</p>
+                            <p id="loadingBotText">• 투자 대가 알고리즘 적용 중</p>
+                            <p>• 거시 경제 캘린더 대조</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result State (Hidden) -->
+                <div id="resultState" class="hidden animate-in space-y-8">
+                    <!-- Dashboard Grid will be injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Icons -->
+    <div class="max-w-4xl mx-auto mt-6 px-4">
+        <div class="flex gap-4 justify-center text-slate-400">
+            <div class="flex items-center gap-1 text-[10px] font-medium uppercase"><i data-lucide="newspaper" class="w-3 h-3"></i> News Sentiment</div>
+            <div class="flex items-center gap-1 text-[10px] font-medium uppercase"><i data-lucide="bar-chart-3" class="w-3 h-3"></i> OHLCV Analysis</div>
+            <div class="flex items-center gap-1 text-[10px] font-medium uppercase"><i data-lucide="activity" class="w-3 h-3"></i> Macro Calendar</div>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        let currentGoal = 'growth';
+        let currentRegion = 'domestic';
+        const riskInput = document.getElementById('riskTolerance');
+        const riskDisplay = document.getElementById('riskValueDisplay');
+        const generateBtn = document.getElementById('generateBtn');
+        const goalButtons = document.querySelectorAll('.goal-btn');
+        const marketDomesticBtn = document.getElementById('marketDomestic');
+        const marketOverseasBtn = document.getElementById('marketOverseas');
+        const marketDetailSelect = document.getElementById('marketDetail');
+        const investorBotSelect = document.getElementById('investorBot');
+        const botDesc = document.getElementById('botDesc');
+
+        const botDescriptions = {
+            buffett: "우량주와 복리의 마법을 중시하며 장기적인 가치에 집중합니다.",
+            oneil: "강한 모멘텀, 이익 성장률, 신고가 종목을 공략하는 공격적 성장 투자를 지향합니다.",
+            chaewon: "저평가된 가치주와 하방 경직성이 확보된 종목을 철저히 분석합니다."
+        };
+
+        // Bot Description Update
+        investorBotSelect.addEventListener('change', (e) => {
+            botDesc.textContent = botDescriptions[e.target.value];
+        });
+
+        // Market Detail Options
+        const marketOptions = {
+            domestic: [
+                { value: 'KOSPI', text: '코스피 (KOSPI)' },
+                { value: 'KOSDAQ', text: '코스닥 (KOSDAQ)' }
+            ],
+            overseas: [
+                { value: 'NASDAQ', text: '나스닥 (NASDAQ)' },
+                { value: 'S&P500', text: 'S&P 500' },
+                { value: 'NYSE', text: '뉴욕증권거래소 (NYSE)' }
+            ]
+        };
+
+        // Market Region Switch
+        function updateMarketRegion(region) {
+            currentRegion = region;
+            const isDomestic = region === 'domestic';
+            
+            marketDomesticBtn.className = isDomestic 
+                ? 'market-region-btn px-3 py-2 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md'
+                : 'market-region-btn px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-500 border border-slate-200';
+            
+            marketOverseasBtn.className = !isDomestic 
+                ? 'market-region-btn px-3 py-2 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md'
+                : 'market-region-btn px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-500 border border-slate-200';
+
+            // Update Select Options
+            marketDetailSelect.innerHTML = marketOptions[region]
+                .map(opt => `<option value="${opt.value}">${opt.text}</option>`)
+                .join('');
+        }
+
+        marketDomesticBtn.addEventListener('click', () => updateMarketRegion('domestic'));
+        marketOverseasBtn.addEventListener('click', () => updateMarketRegion('overseas'));
+
+        // Update Risk Display
+        riskInput.addEventListener('input', (e) => {
+            riskDisplay.textContent = `${e.target.value} / 10`;
+        });
+
+        // Goal Selection
+        goalButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentGoal = btn.dataset.goal;
+                goalButtons.forEach(b => {
+                    b.className = 'goal-btn text-left px-3 py-2 rounded-lg text-xs font-medium transition-all bg-white text-slate-500 border border-slate-200';
+                });
+                btn.className = 'goal-btn text-left px-3 py-2 rounded-lg text-xs font-medium transition-all bg-indigo-600 text-white shadow-md';
+            });
+        });
+
+        // Main Logic
+        generateBtn.addEventListener('click', async () => {
+            const setupState = document.getElementById('setupState');
+            const loadingState = document.getElementById('loadingState');
+            const resultState = document.getElementById('resultState');
+            const marketText = document.getElementById('loadingMarketText');
+            const botText = document.getElementById('loadingBotText');
+
+            setupState.classList.add('hidden');
+            resultState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            
+            const selectedBotName = investorBotSelect.options[investorBotSelect.selectedIndex].text.split(' (')[0];
+            marketText.textContent = `• ${marketDetailSelect.value} 시장 데이터 대조 중`;
+            botText.textContent = `• ${selectedBotName}의 투자 철학 알고리즘 적용 중`;
+
+            setTimeout(() => {
+                const riskVal = parseInt(riskInput.value);
+                const budget = document.getElementById('budget').value;
+                const selectedMarket = marketDetailSelect.value;
+                const selectedBot = investorBotSelect.value;
+                
+                // Content Logic based on selected Bot
+                let mentorName = "";
+                let adviceText = "";
+                let stocks = [];
+
+                if (selectedBot === 'buffett') {
+                    mentorName = "워런 버핏의 가치투자 봇";
+                    adviceText = "가격은 당신이 지불하는 것이고, 가치는 당신이 얻는 것입니다. 우량한 기업을 훌륭한 가격에 사서 영원히 보유하세요.";
+                    if (currentRegion === 'domestic') {
+                        stocks = [
+                            { name: "삼성전자", weight: 45, reason: "강력한 해자와 현금 창출력", outlook: "상향" },
+                            { name: "삼성화재", weight: 25, reason: "안정적인 비즈니스 모델 및 배당", outlook: "안정" },
+                            { name: "LG화학", weight: 20, reason: "지속가능한 경쟁우위 확보", outlook: "안정" }
+                        ];
+                    } else {
+                        stocks = [
+                            { name: "애플 (AAPL)", weight: 40, reason: "브랜드 충성도와 독보적 생태계", outlook: "상향" },
+                            { name: "옥시덴탈 (OXY)", weight: 30, reason: "현금 흐름 개선 및 주주 환원", outlook: "상향" },
+                            { name: "코카콜라 (KO)", weight: 20, reason: "독점적 시장 지배력", outlook: "안정" }
+                        ];
+                    }
+                } else if (selectedBot === 'oneil') {
+                    mentorName = "윌리엄 오닐의 CAN SLIM 봇";
+                    adviceText = "신고가를 경신하는 주식을 두려워하지 마세요. 폭발적인 실적 성장이 뒷받침되는 주도주에 올라타야 합니다.";
+                    if (currentRegion === 'domestic') {
+                        stocks = [
+                            { name: "한미반도체", weight: 50, reason: "폭발적인 이익 성장 및 신고가 패턴", outlook: "상향" },
+                            { name: "알테오젠", weight: 30, reason: "바이오 섹터 내 신고가 모멘텀", outlook: "변동" },
+                            { name: "현대차", weight: 10, reason: "안정적 추세 추종", outlook: "안정" }
+                        ];
+                    } else {
+                        stocks = [
+                            { name: "엔비디아 (NVDA)", weight: 45, reason: "AI 주도주로서의 압도적 EPS 성장", outlook: "상향" },
+                            { name: "팔란티어 (PLTR)", weight: 35, reason: "기관 매수세 유입 및 실적 가속화", outlook: "상향" },
+                            { name: "일라이 릴리 (LLY)", weight: 10, reason: "헬스케어 내 강한 추세 유지", outlook: "안정" }
+                        ];
+                    }
+                } else {
+                    mentorName = "이채원의 가치투자 봇";
+                    adviceText = "시장이 소외시킨 진주를 찾아야 합니다. 자산 가치 대비 저평가된 종목은 반드시 제값을 찾기 마련입니다.";
+                    stocks = [
+                        { name: "KT&G", weight: 40, reason: "풍부한 현금성 자산 및 저평가", outlook: "안정" },
+                        { name: "영원무역", weight: 30, reason: "높은 순자산 가치 및 이익 체력", outlook: "안정" },
+                        { name: "우리금융지주", weight: 20, reason: "금융 섹터 내 PBR 메리트", outlook: "안정" }
+                    ];
+                }
+                
+                stocks.push({ name: "현금 비중", weight: 10, reason: "기회 포착용 유동성", outlook: "-" });
+
+                const data = {
+                    market: selectedMarket,
+                    botName: selectedBotName,
+                    summary: {
+                        expectedReturn: riskVal * 1.2 + (selectedBot === 'oneil' ? 8 : 4),
+                        safetyLevel: 100 - (riskVal * 6) + (selectedBot === 'chaewon' ? 10 : 0),
+                        riskLevel: riskVal
+                    },
+                    portfolio: stocks,
+                    mentor: mentorName,
+                    advice: adviceText,
+                    shortScenario: `${selectedBotName}의 로직에 따르면, 현재 ${selectedMarket}은 ${selectedBot === 'oneil' ? '돌파 매수' : '저점 매수'}의 적기입니다.`
+                };
+
+                renderResult(data, budget);
+                loadingState.classList.add('hidden');
+                resultState.classList.remove('hidden');
+                lucide.createIcons();
+            }, 2000);
+        });
+
+        function formatKRW(val) {
+            return new Intl.NumberFormat('ko-KR').format(val) + '원';
+        }
+
+        function renderResult(data, budget) {
+            const container = document.getElementById('resultState');
+            container.innerHTML = `
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-bold">${data.market}</span>
+                    <span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold">${data.botName} 모델</span>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">예상 목표 수익률</div>
+                        <div class="text-xl font-black text-emerald-600">+${data.summary.expectedReturn}%</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">모델 안전성</div>
+                        <div class="text-xl font-black text-indigo-600">${data.summary.safetyLevel}/100</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">공격성 지표</div>
+                        <div class="text-xl font-black text-rose-500">Lv.${data.summary.riskLevel}</div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
+                        <div class="text-[10px] text-slate-400 font-bold uppercase mb-1">편입 종목 수</div>
+                        <div class="text-xl font-black text-slate-700">${data.portfolio.length}</div>
+                    </div>
+                </div>
+
+                <section>
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2 mb-4">
+                        <i data-lucide="target" class="w-4 h-4"></i> ${data.botName}의 엄선 포트폴리오
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="border-b border-slate-100 text-slate-400">
+                                    <th class="pb-3 font-medium">종목명</th>
+                                    <th class="pb-3 font-medium text-center">비중</th>
+                                    <th class="pb-3 font-medium hidden md:table-cell">선택 근거</th>
+                                    <th class="pb-3 font-medium text-right">기술적 전망</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.portfolio.map(item => `
+                                    <tr class="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                                        <td class="py-4 font-bold text-slate-700">${item.name}</td>
+                                        <td class="py-4 text-center font-black text-indigo-600">${item.weight}%</td>
+                                        <td class="py-4 text-slate-500 hidden md:table-cell text-xs">${item.reason}</td>
+                                        <td class="py-4 text-right">
+                                            <span class="px-2 py-1 rounded text-[10px] font-bold ${
+                                                item.outlook === '상향' ? 'bg-emerald-100 text-emerald-700' : 
+                                                item.outlook === '안정' ? 'bg-blue-100 text-blue-700' : 
+                                                item.outlook === '변동' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+                                            }">${item.outlook}</span>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-indigo-50 p-6 rounded-3xl relative overflow-hidden">
+                        <h4 class="font-bold text-indigo-900 mb-3 flex items-center gap-2">
+                            <i data-lucide="message-square" class="w-4 h-4"></i> ${data.mentor}
+                        </h4>
+                        <p class="text-sm text-indigo-800 leading-relaxed italic">"${data.advice}"</p>
+                        <div class="mt-4 p-3 bg-white/50 rounded-xl text-xs text-indigo-900 font-medium border border-indigo-100">
+                            📢 <strong>알고리즘 코멘트:</strong> ${data.shortScenario}
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 p-6 rounded-3xl text-white">
+                        <h4 class="font-bold mb-4 flex items-center gap-2 text-slate-400">
+                            <i data-lucide="bar-chart" class="w-4 h-4"></i> 시장 핵심 모멘텀
+                        </h4>
+                        <div class="space-y-4 text-xs">
+                            <div class="border-l-2 border-indigo-500 pl-4">
+                                <div class="text-indigo-400 font-bold mb-1">섹터 수급 동향</div>
+                                <div class="text-slate-400">외국인 및 기관의 동반 순매수세가 ${data.botName} 모델에 포착되었습니다.</div>
+                            </div>
+                            <div class="border-l-2 border-slate-700 pl-4">
+                                <div class="text-slate-500 font-bold mb-1">매크로 민감도</div>
+                                <div class="text-slate-400">환율 변동에 따른 실적 민감주 비중을 조절하였습니다.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 items-center">
+                    <div class="bg-amber-400 p-2 rounded-xl text-white"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                    <div>
+                        <h5 class="text-xs font-bold text-amber-900">투자 주의 사항</h5>
+                        <p class="text-[11px] text-amber-700">${data.botName} 모델은 과거의 데이터를 기반으로 한 예시이며, 실제 투자 시 원금 손실이 발생할 수 있습니다.</p>
+                    </div>
+                </div>
+                
+                <button onclick="location.reload()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl transition-all">전략 재설정</button>
+            `;
+        }
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
