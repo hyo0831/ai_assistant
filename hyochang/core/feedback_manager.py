@@ -183,7 +183,10 @@ def collect_feedback(ticker: str, analysis: str, verdict: str) -> Optional[Dict]
     print("=" * 80)
 
     try:
-        rating_input = input("이 분석 평가 (1-5, 엔터=건너뜀): ").strip()
+        try:
+            rating_input = input("이 분석 평가 (1-5, 엔터=건너뜀): ").strip()
+        except EOFError:
+            return None
 
         if not rating_input:
             print("[건너뜀] 피드백이 저장되지 않았습니다.")
@@ -194,7 +197,10 @@ def collect_feedback(ticker: str, analysis: str, verdict: str) -> Optional[Dict]
             print("[오류] 1-5 사이의 숫자를 입력해주세요.")
             return None
 
-        comment = input("간단한 코멘트 (선택사항): ").strip()
+        try:
+            comment = input("간단한 코멘트 (선택사항): ").strip()
+        except EOFError:
+            comment = ""
 
         return {
             "ticker": ticker,

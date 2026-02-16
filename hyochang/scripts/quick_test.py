@@ -12,7 +12,7 @@ def check_imports():
     required_libs = {
         'yfinance': 'yfinance',
         'mplfinance': 'mplfinance',
-        'google.generativeai': 'google-generativeai',
+        'google.genai': 'google-genai',
         'pandas': 'pandas',
         'PIL': 'pillow'
     }
@@ -86,7 +86,7 @@ def test_gemini_api():
     print("\n[*] Testing Gemini API connection...")
 
     try:
-        import google.generativeai as genai
+        from google import genai
 
         api_key = os.environ.get("GEMINI_API_KEY")
 
@@ -94,11 +94,13 @@ def test_gemini_api():
             print("  [SKIP] Skipping (API key not set)")
             return False
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        client = genai.Client(api_key=api_key)
 
         # 간단한 테스트 요청
-        response = model.generate_content("Say 'API connection successful' in one line.")
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents="Say 'API connection successful' in one line."
+        )
 
         print(f"  [OK] API connection successful!")
         print(f"  Response: {response.text[:100]}")
