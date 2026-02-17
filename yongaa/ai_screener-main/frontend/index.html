@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 투자도우미 - 조건검색편</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-gradient"></div>
+  <div id="appRoot">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">AI</div>
+      <div>
+        <div class="brand-title" data-i18n="title">AI 투자도우미</div>
+        <div class="brand-sub" data-i18n="subtitle">조건검색편</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button id="helpBtn" class="ghost" data-i18n="help">도움말</button>
+      <button id="themeToggle" class="ghost" data-i18n="toggleTheme">다크</button>
+      <button id="langToggle" class="ghost">EN</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1 class="hero-title" data-i18n="heroTitle">조건검색을 한 번에, 쉽고 빠르게</h1>
+      <p class="hero-desc" data-i18n="heroDesc">시장·목표·기간만 알려주면 맞춤형 조건식을 추천합니다.</p>
+
+      <div class="search-card">
+        <div class="input-row">
+          <label class="input-label" for="goalInput" data-i18n="goalLabel">어떤 주식을 찾고 싶나요?</label>
+          <input id="goalInput" class="text-input" placeholder="예: 유동성 높은 단타 종목" data-i18n-placeholder="goalPlaceholder" />
+          <div class="example" data-i18n="goalExample">예시 검색어: "KOSDAQ에서 모멘텀 좋은 스윙 종목"</div>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="card-title" data-i18n="marketTitle">어디 시장?</div>
+            <div class="chip-group" id="marketChips">
+              <button class="chip" data-value="KOSPI" data-tip="KOSPI">KOSPI</button>
+              <button class="chip" data-value="KOSDAQ" data-tip="KOSDAQ">KOSDAQ</button>
+              <button class="chip" data-value="NASDAQ" data-tip="NASDAQ">NASDAQ</button>
+              <button class="chip" data-value="NYSE" data-tip="NYSE">NYSE</button>
+              <button class="chip" data-value="AMEX" data-tip="AMEX">AMEX</button>
+              <button class="chip" data-value="ALL" data-tip="ALL">ALL</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title" data-i18n="horizonTitle">투자 기간</div>
+            <div class="chip-group" id="horizonChips">
+              <button class="chip" data-value="day" data-tip="1일 이내 매매">Day</button>
+              <button class="chip" data-value="swing" data-tip="수일~수주">Swing</button>
+              <button class="chip" data-value="long" data-tip="수개월~수년">Long</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <label class="card-title" for="themeInput" data-i18n="themeTitle">최근 이슈/테마(선택)</label>
+            <input id="themeInput" class="text-input" placeholder="예: AI 반도체, 2차전지" data-i18n-placeholder="themePlaceholder" />
+            <div class="muted" data-i18n="themeNote">테마를 적으면 테마 적합 점수를 함께 계산합니다.</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="runBtn" class="primary" data-i18n="run">맞춤 조건식 추천받기</button>
+          <div id="requiredHint" class="hint" data-i18n="requiredHint">시장/목표/기간은 꼭 입력해 주세요.</div>
+          <div id="loadingWrap" class="loading hidden" aria-live="polite">
+            <div class="loading-text" id="loadingText">분석 중... 0%</div>
+            <div class="progress">
+              <div class="progress-bar" id="progressBar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="resultSection" class="result hidden">
+      <div class="result-header">
+        <h2 id="formulaTitle"></h2>
+        <p id="formulaDesc"></p>
+        <div id="asOf" class="muted"></div>
+        <div id="note" class="muted"></div>
+      </div>
+
+      <div class="result-grid">
+        <div class="panel">
+          <h3 data-i18n="recommendedRules">추천 조건식</h3>
+          <div id="rulesList" class="rules"></div>
+          <div id="themeHint" class="theme-hint"></div>
+        </div>
+
+        <div class="panel">
+          <h3 data-i18n="topRank">Top 랭킹</h3>
+          <div id="rankingList" class="ranking"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="muted" data-i18n="disclaimer">이 서비스는 교육/연구 목적의 예시이며 투자 손익은 본인 책임입니다.</div>
+  </footer>
+  </div>
+
+  <div id="helpModal" class="modal hidden" hidden style="display:none;">
+    <div class="modal-backdrop" id="helpBackdrop"></div>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h3 data-i18n="helpTitle">도움말</h3>
+        <button id="helpClose" class="ghost">✕</button>
+      </div>
+      <div class="modal-body">
+        <ol>
+          <li data-i18n="helpStep1">1. 시장, 목표, 투자기간을 선택하세요.</li>
+          <li data-i18n="helpStep2">2. 테마가 있다면 입력하고 추천을 눌러주세요.</li>
+          <li data-i18n="helpStep3">3. 조건식과 상위 종목을 확인하세요.</li>
+        </ol>
+        <div class="help-block">
+          <div class="help-title" data-i18n="helpIntroTitle">조건은 총 9가지입니다.</div>
+          <p data-i18n="helpIntro">유동성(거래량, 거래대금, 외국인소진율), 마법공식(저 PER, 저 PBR, 고 ROE), 기술(이평선 크로스, RSI 범위, OBV)로 구성됩니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
