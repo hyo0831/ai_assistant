@@ -1,17 +1,13 @@
 """
-윌리엄 오닐 페르소나 투자 어시스턴트 (William O'Neil AI Investment Assistant)
+William O'Neil AI Investment Assistant
+실행 진입점 (Entry Point)
 
-Backward compatibility re-export layer.
-All logic lives in core/* and cli.py.
+사용법:
+    python main.py           # 대화형 메뉴
+    python cli.py            # 동일
+    uvicorn api:app --reload # FastAPI 서버
 """
-from core.config import *
-from core.data_fetcher import *
-from core.chart_generator import *
-from core.ai_analyzer import *
-from core.result_manager import *
-from cli import main_v1, main_v2, main_compare, _select_chart_interval, _print_analysis_result, _collect_and_save_feedback
+from cli import main
 
 if __name__ == "__main__":
-    import cli
-    import runpy
-    runpy.run_module("cli", run_name="__main__", alter_sys=True)
+    main()

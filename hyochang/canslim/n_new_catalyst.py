@@ -7,7 +7,6 @@ AI가 해당 기업의 신제품/서비스/경영 변화를 직접 조사하여 
 
 import os
 import json
-import pandas as pd
 from typing import Dict, Optional
 
 # O'Neil 원문 (RAG 참조용)
