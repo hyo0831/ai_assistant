@@ -232,14 +232,27 @@ Use these exact dates and prices in your analysis for accuracy.
     if feedback_manager:
         feedback_context = feedback_manager.get_feedback_context(ticker)
 
+    lang_instruction = (
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "CRITICAL LANGUAGE REQUIREMENT — 반드시 지켜야 함:\n"
+        "모든 분석 텍스트를 한국어(Korean)로 작성하라.\n"
+        "영어로 답변하면 안 된다. 반드시 한국어로만 답변하라.\n"
+        "단, 아래 기술 용어는 영어 그대로 사용 가능:\n"
+        "Cup with Handle, Double Bottom, Flat Base, High Tight Flag,\n"
+        "CAN SLIM, RS Rating, EPS, ROE, P/E, Buy Point, Stop Loss,\n"
+        "Accumulation, Distribution, Breakout, Pivot Point, Base Stage\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+    )
+
     # 분석 요청 프롬프트
     analysis_prompt = f"""
-Analyze this WEEKLY stock chart for {ticker}.
-{data_summary}
-{feedback_context}
+{lang_instruction}
 
+{ticker} 종목의 WEEKLY 주식 차트를 분석하라.
 IMPORTANT: This is a WEEKLY chart, not a daily chart. Each candle represents one week of trading.
 When analyzing patterns, use weekly timeframes (e.g., "Cup with Handle" should be 7-65 weeks, not days).
+{data_summary}
+{feedback_context}
 
 Provide your analysis in TWO parts:
 
@@ -268,30 +281,30 @@ Return a JSON object with pattern details. Include APPROXIMATE week indices (cou
 
 Note: For week indices, estimate based on the visible chart. For example, if the pattern started ~40 weeks ago and there are ~150 weeks total, pattern_start_week would be around 110.
 
-PART 2: Detailed Analysis
+PART 2: Detailed Analysis (반드시 한국어로 작성)
 
-## CHART ANALYSIS: {ticker}
+## 차트 분석: {ticker}
 
-### 1. Trend Status
-[Analyze the primary trend using moving averages]
+### 1. 추세 현황
+[이동평균선(10주선/40주선)을 기준으로 현재 추세를 분석하라]
 
-### 2. Pattern Recognition
-[Identify any CAN SLIM patterns present]
+### 2. 패턴 인식
+[차트 이미지를 직접 보고 패턴을 판단하라. 명확한 패턴이 없으면 없다고 명시하라]
 
-### 3. Volume Behavior
-[Assess volume characteristics and breakout signals]
+### 3. 거래량 분석
+[거래량 바를 분석하라. 매집/분산 신호, 돌파 시 거래량 급증 여부를 확인하라]
 
-### 4. Buy Point & Entry
-[Specify exact buy point and current position relative to it]
+### 4. 매수 포인트 & 진입 전략
+[Pivot Point 기준 현재 주가 위치를 설명하라]
 
-### 5. Risk Management
-[Define stop-loss level and risk/reward ratio]
+### 5. 리스크 관리
+[손절 기준(매수 포인트 7~8% 아래)과 리스크/수익 비율을 제시하라]
 
-### 6. FINAL VERDICT
-[Your clear, actionable recommendation: BUY NOW / WATCH & WAIT / AVOID]
+### 6. 최종 판단
+[BUY NOW / WATCH & WAIT / AVOID 중 하나를 명확히 제시하라]
 
 ---
-Be specific, use actual price levels visible on the chart, and give your honest professional opinion.
+구체적인 가격 레벨과 퍼센트를 사용하라. 솔직하고 전문적인 의견을 제시하라.
 """
 
     # Gemini에 분석 요청
@@ -683,53 +696,74 @@ IMPORTANT DATA CONTEXT (for accurate date/price reference):
     if feedback_manager:
         feedback_context = feedback_manager.get_feedback_context(ticker)
 
+    lang_instruction = (
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+        "CRITICAL LANGUAGE REQUIREMENT — 반드시 지켜야 함:\n"
+        "모든 분석 텍스트를 한국어(Korean)로 작성하라.\n"
+        "영어로 답변하면 안 된다. 반드시 한국어로만 답변하라.\n"
+        "단, 아래 기술 용어는 영어 그대로 사용 가능:\n"
+        "Cup with Handle, Double Bottom, Flat Base, High Tight Flag,\n"
+        "CAN SLIM, RS Rating, EPS, ROE, P/E, Buy Point, Stop Loss,\n"
+        "Accumulation, Distribution, Breakout, Pivot Point, Base Stage\n"
+        "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"
+    )
+
     # V2 분석 프롬프트 (코드 감지 결과를 참고하도록)
     analysis_prompt = f"""
-Analyze this WEEKLY stock chart for {ticker}.
+{lang_instruction}
+
+{ticker} 종목의 WEEKLY 주식 차트를 분석하라.
+IMPORTANT: This is a WEEKLY chart. Each candle = one week of trading.
 
 {data_summary}
 
-## CODE-BASED PATTERN DETECTION RESULTS
-The following patterns and metrics were detected by our automated pattern detection engine.
-Use these results as quantitative reference data to support your visual analysis of the chart.
-If the code detection and your visual analysis conflict, explain the discrepancy.
+---
+## [보조 데이터 1] 정량적 지표 (코드 계산값 — 참고용)
+아래 수치는 알고리즘이 계산한 정량 데이터다.
+RS Rating, 거래량 추세, Base Stage 등 수치 정보를 활용하라.
+단, 패턴 이름(Cup-with-Handle 등)은 참고만 하고, 실제 패턴 판단은 반드시 차트 이미지를 직접 보고 결정하라.
 
 {pattern_summary}
 
 {feedback_context}
 
-IMPORTANT: This is a WEEKLY chart. Each candle = one week of trading.
+---
+## 분석 형식 (아래 섹션 순서대로 한국어로 작성)
 
-Based on BOTH the chart image AND the code-detected pattern data above, provide your analysis:
+## 차트 분석: {ticker}
 
-## CHART ANALYSIS: {ticker}
+### 1. 추세 현황
+이동평균선(10주선/40주선)을 기준으로 현재 추세를 분석하라.
+주가가 이동평균선 위/아래 어디에 있는지, 이동평균선 방향은 어떤지 설명하라.
 
-### 1. Trend Status
-[Analyze using moving averages. Is stock above/below 10-week and 40-week MA?]
+### 2. 패턴 인식
+차트 이미지를 직접 보고 패턴을 판단하라.
+- 명확한 패턴이 보이면: 패턴명, 형성 기간, 깊이, 품질을 설명하라.
+- 명확한 패턴이 없으면: "현재 명확한 베이스 패턴이 형성되지 않았습니다"라고 명시하고 현재 차트 구조를 설명하라.
+- 코드가 패턴을 감지했더라도 차트에서 확인이 안 되면 "코드 감지 결과와 달리 시각적으로 확인되지 않습니다"라고 밝혀라.
+- 억지로 패턴을 붙이지 마라.
 
-### 2. Pattern Recognition
-[Evaluate the code-detected pattern. Do you agree with the detection? Is the pattern valid per O'Neil's criteria?
-If code detected a pattern, assess its quality. If no pattern was detected, explain what you see.]
+### 3. 거래량 분석
+차트의 거래량 바와 정량 데이터를 함께 활용하라.
+매집/분산 신호, 돌파 시 거래량 급증 여부를 분석하라.
 
-### 3. Volume Behavior
-[Use both the chart and the code-detected volume analysis. Are accumulation/distribution days concerning?]
+### 4. 매수 포인트 & 진입 전략
+Pivot Point 기준 현재 주가 위치를 설명하라.
+매수 가능 구간인지, 추가 조정이 필요한지 판단하라.
 
-### 4. Buy Point & Entry
-[Use the code-detected pivot point as reference. Is the stock at, near, or far from the buy point?
-Current price vs. pivot point relationship.]
+### 5. 리스크 관리
+손절 기준(매수 포인트 7~8% 아래)과 리스크/수익 비율을 제시하라.
 
-### 5. Risk Management
-[Stop-loss level (7-8% below buy point). Risk/reward ratio.]
+### 6. 패턴 결함 & 주의사항
+코드가 감지한 결함이 실제로 유효한지 평가하라.
+Base Stage와 그것이 위험도에 미치는 영향을 설명하라.
 
-### 6. Pattern Quality & Faults
-[Address any faults detected by the code. Are they valid concerns?
-What is the base stage and what does it mean for risk?]
-
-### 7. FINAL VERDICT
-[BUY NOW / WATCH & WAIT / AVOID — with specific reasoning integrating both code data and chart analysis]
+### 7. 최종 판단
+BUY NOW / WATCH & WAIT / AVOID 중 하나를 명확히 제시하라.
+기술적 분석을 통합한 근거를 제시하라.
 
 ---
-Be specific with price levels and percentages. Give your honest professional opinion.
+구체적인 가격 레벨과 퍼센트를 사용하라. 솔직하고 전문적인 의견을 제시하라.
 """
 
     response = model.generate_content([analysis_prompt, image])
