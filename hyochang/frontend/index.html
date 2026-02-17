@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>O'Neil AI — Trading Terminal</title>
+
+  <!-- TradingView Lightweight Charts -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      background: #0b0f1a;
+      color: #e2e8f0;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 13px;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* 스크롤바 */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0b0f1a; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+
+    /* 페이드인 */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.35s ease-out; }
+
+    /* 스피너 */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid #1e293b;
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    /* 판정 배지 펄스 */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+    .verdict-pulse { animation: pulse 2.2s ease-in-out infinite; }
+
+    /* 분석 패널 마크다운 */
+    .analysis-text h2 {
+      color: #38bdf8; font-size: 0.85rem; font-weight: 700;
+      margin: 1rem 0 0.3rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.25rem;
+    }
+    .analysis-text h3 {
+      color: #94a3b8; font-size: 0.8rem; font-weight: 600;
+      margin: 0.8rem 0 0.2rem;
+    }
+    .analysis-text strong { color: #f1f5f9; }
+    .analysis-text hr { border-color: #1e293b; margin: 0.6rem 0; }
+    .analysis-text p { margin-bottom: 0.3rem; line-height: 1.65; }
+
+    /* 채팅 말풍선 */
+    .chat-msg-user { background: #1e3a5f; border-radius: 12px 12px 2px 12px; }
+    .chat-msg-bot  { background: #111827; border-radius: 12px 12px 12px 2px; border: 1px solid #1e293b; }
+
+    /* 종목 리스트 */
+    .ticker-item {
+      padding: 0 14px;
+      height: 100%;
+      display: flex; align-items: center; gap: 6px;
+      cursor: pointer;
+      border-right: 1px solid #1e293b;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .ticker-item:hover { background: #111827; }
+    .ticker-item.active { background: #0f2040; border-top: 2px solid #38bdf8; }
+
+    /* 버튼 기본 */
+    .btn {
+      border-radius: 6px; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-sky { background: #0284c7; color: white; }
+    .btn-outline { background: transparent; border: 1px solid #1e293b; color: #94a3b8; }
+    .btn-outline:hover { border-color: #38bdf8; color: #38bdf8; }
+    .btn-active { background: #0f2040; border: 1px solid #38bdf8; color: #38bdf8; }
+
+    /* 입력 */
+    .input-field {
+      background: #111827; border: 1px solid #1e293b; border-radius: 6px;
+      color: #e2e8f0; outline: none; transition: border-color 0.2s;
+    }
+    .input-field:focus { border-color: #38bdf8; }
+    .input-field::placeholder { color: #374151; }
+
+    /* 프로그레스 바 */
+    .progress-bar { height: 3px; background: #1e293b; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+    /* CAN SLIM 그리드 */
+    .canslim-item {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 6px 4px; background: #111827;
+      border: 1px solid #1e293b; border-radius: 6px;
+    }
+    .canslim-letter { font-weight: 700; font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; }
+    .canslim-status { font-size: 0.7rem; margin-top: 2px; }
+  </style>
+</head>
+<body class="flex flex-col">
+
+  <!-- ══════════════════════════════════════════════════════
+       TOP BAR
+  ══════════════════════════════════════════════════════ -->
+  <header class="flex items-center gap-3 px-4 border-b border-[#1e293b] bg-[#0d1117]" style="height:44px; flex-shrink:0">
+
+    <!-- 로고 -->
+    <div class="flex items-center gap-2 mr-3">
+      <div class="w-6 h-6 bg-sky-500 rounded flex items-center justify-center text-black text-[11px] font-black">O</div>
+      <span class="text-sky-400 mono font-bold text-xs tracking-widest">O'NEIL AI</span>
+    </div>
+
+    <!-- 종목 검색 -->
+    <div class="flex items-center bg-[#111827] border border-[#1e293b] rounded px-2 gap-1.5" style="width:180px">
+      <svg class="w-3.5 h-3.5 text-[#374151] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z"/>
+      </svg>
+      <input id="ticker-input"
+        class="bg-transparent outline-none text-sky-300 mono font-bold text-sm w-full py-1.5 placeholder-[#374151] uppercase"
+        placeholder="AAPL" autocomplete="off" />
+    </div>
+
+    <!-- 봉 단위 -->
+    <div class="flex items-center gap-1">
+      <button id="btn-1wk" class="btn btn-active text-xs px-3 py-1" onclick="setInterval_('1wk')">W</button>
+      <button id="btn-1d"  class="btn btn-outline text-xs px-3 py-1" onclick="setInterval_('1d')">D</button>
+    </div>
+
+    <!-- 기간 -->
+    <div class="flex items-center gap-1">
+      <button class="btn btn-outline text-xs px-2 py-1 period-btn" data-p="6mo"  onclick="setPeriod('6mo')">6M</button>
+      <button class="btn btn-outline text-xs px-2 py-1 period-btn" data-p="1y"   onclick="setPeriod('1y')">1Y</button>
+      <button class="btn btn-active text-xs px-2 py-1 period-btn"  data-p="2y"   onclick="setPeriod('2y')">2Y</button>
+      <button class="btn btn-outline text-xs px-2 py-1 period-btn" data-p="3y"   onclick="setPeriod('3y')">3Y</button>
+    </div>
+
+    <!-- 상태 뱃지 (ticker 조회 후 표시) -->
+    <div id="ticker-badge" class="hidden items-center gap-3 ml-2 fade-in">
+      <span id="badge-name" class="text-[#94a3b8] text-xs"></span>
+      <div id="badge-verdict" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold mono verdict-pulse"></div>
+      <span id="badge-rs" class="text-[#64748b] text-xs mono"></span>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <!-- 시계 -->
+    <span id="clock" class="text-[#374151] mono text-xs"></span>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════
+       MAIN AREA: 차트 + 오른쪽 패널
+  ══════════════════════════════════════════════════════ -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- ── 차트 영역 ──────────────────────────────────── -->
+    <div class="flex flex-col flex-1 overflow-hidden border-r border-[#1e293b]">
+
+      <!-- 차트 컨테이너 -->
+      <div id="chart-container" class="flex-1 relative bg-[#0b0f1a]">
+        <!-- Empty state -->
+        <div id="chart-empty" class="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-20">
+          <div class="text-5xl mono text-[#1e293b]">[ CHART ]</div>
+          <p class="text-[#374151] text-sm mono">종목을 입력하고 Enter를 누르세요</p>
+        </div>
+        <!-- 로딩 오버레이 -->
+        <div id="chart-loading" class="hidden absolute inset-0 flex items-center justify-center bg-[#0b0f1a]/80 z-10">
+          <div class="flex flex-col items-center gap-3">
+            <div class="spinner" style="width:28px;height:28px;border-width:3px"></div>
+            <span class="text-[#64748b] mono text-xs">차트 데이터 로딩 중...</span>
+          </div>
+        </div>
+        <!-- 에러 오버레이 -->
+        <div id="chart-error" class="hidden absolute inset-0 flex items-center justify-center bg-[#0b0f1a]/80 z-10">
+          <div class="text-red-400 mono text-xs text-center"></div>
+        </div>
+        <!-- 차트 범례 -->
+        <div id="chart-legend" class="hidden absolute top-3 left-4 z-10 flex items-center gap-4 fade-in">
+          <span class="text-[#e2e8f0] font-bold mono text-sm" id="legend-ticker"></span>
+          <span class="text-[#64748b] mono text-xs" id="legend-interval"></span>
+          <span class="flex items-center gap-1 text-xs"><span class="w-3 h-0.5 bg-blue-400 inline-block"></span><span class="text-[#64748b] mono" id="legend-ma1"></span></span>
+          <span class="flex items-center gap-1 text-xs"><span class="w-3 h-0.5 bg-orange-400 inline-block"></span><span class="text-[#64748b] mono" id="legend-ma2"></span></span>
+        </div>
+      </div>
+
+      <!-- 차트 정보바 (하단) -->
+      <div id="chart-infobar" class="hidden items-center gap-4 px-4 border-t border-[#1e293b] bg-[#0d1117] mono text-xs text-[#64748b]" style="height:28px">
+        <span id="info-o">O <span class="text-[#e2e8f0]">—</span></span>
+        <span id="info-h">H <span class="text-[#e2e8f0]">—</span></span>
+        <span id="info-l">L <span class="text-[#e2e8f0]">—</span></span>
+        <span id="info-c">C <span class="text-[#e2e8f0]">—</span></span>
+        <span id="info-chg"></span>
+        <span id="info-vol">Vol <span class="text-[#e2e8f0]">—</span></span>
+        <div class="flex-1"></div>
+        <span id="info-date" class="text-[#374151]"></span>
+      </div>
+    </div>
+
+    <!-- ── 우측 AI 패널 ──────────────────────────────── -->
+    <div id="ai-panel" class="flex flex-col bg-[#0d1117]" style="width:360px; flex-shrink:0">
+
+      <!-- 패널 헤더 -->
+      <div class="flex items-center justify-between px-4 border-b border-[#1e293b]" style="height:44px">
+        <div class="flex items-center gap-2">
+          <div class="w-5 h-5 bg-violet-600 rounded flex items-center justify-center text-white text-[10px] font-black">W</div>
+          <span class="text-[#94a3b8] mono text-xs font-bold">William O'Neil Bot</span>
+        </div>
+        <!-- 분석 버튼 -->
+        <button id="analyze-btn" onclick="runAnalysis()"
+          class="btn btn-sky text-xs px-4 py-1.5 disabled:opacity-40">
+          분석 시작
+        </button>
+      </div>
+
+      <!-- 탭 -->
+      <div class="flex border-b border-[#1e293b]" style="flex-shrink:0">
+        <button class="tab-btn flex-1 py-2 text-xs mono font-bold text-sky-400 border-b-2 border-sky-500" data-tab="summary" onclick="switchTab('summary')">요약</button>
+        <button class="tab-btn flex-1 py-2 text-xs mono font-bold text-[#64748b] border-b-2 border-transparent" data-tab="analysis" onclick="switchTab('analysis')">분석 전문</button>
+        <button class="tab-btn flex-1 py-2 text-xs mono font-bold text-[#64748b] border-b-2 border-transparent" data-tab="chat" onclick="switchTab('chat')">질문하기</button>
+      </div>
+
+      <!-- 분석 로딩 -->
+      <div id="analysis-loading" class="hidden flex-col items-center justify-center gap-3 py-10">
+        <div class="spinner" style="width:24px;height:24px"></div>
+        <p id="analysis-loading-msg" class="text-[#64748b] mono text-xs text-center px-4">분석 준비 중...</p>
+      </div>
+
+      <!-- 분석 에러 -->
+      <div id="analysis-error" class="hidden mx-4 mt-3 p-3 bg-red-950 border border-red-900 rounded text-red-300 text-xs mono"></div>
+
+      <!-- ── TAB: 요약 ── -->
+      <div id="tab-summary" class="tab-content flex-1 overflow-y-auto" style="display:block; overflow-y:auto">
+
+        <!-- 빈 상태 -->
+        <div id="summary-empty" class="flex flex-col items-center justify-center h-full gap-3 opacity-30">
+          <div class="text-3xl text-[#1e293b]">📊</div>
+          <p class="text-[#374151] mono text-xs text-center">분석 버튼을 눌러<br>AI 분석을 시작하세요</p>
+          <p class="text-[#1e293b] mono text-[10px]">일봉: 최소 6개월 · 주봉: 최소 18개월</p>
+        </div>
+
+        <!-- 요약 콘텐츠 -->
+        <div id="summary-content" class="hidden p-4 space-y-3 fade-in">
+
+          <!-- 판정 -->
+          <div id="verdict-card" class="rounded-lg p-4 border text-center">
+            <div class="text-[10px] mono text-[#64748b] uppercase tracking-widest mb-1">Final Verdict</div>
+            <div id="verdict-text" class="text-2xl font-black mono"></div>
+          </div>
+
+          <!-- RS + 패턴 -->
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-[#111827] border border-[#1e293b] rounded-lg p-3">
+              <div class="text-[10px] mono text-[#64748b] uppercase tracking-widest mb-1">RS Rating</div>
+              <div class="flex items-end gap-1">
+                <span id="rs-value" class="text-xl font-bold mono"></span>
+                <span class="text-[#64748b] text-xs mono mb-0.5">/99</span>
+              </div>
+              <div class="progress-bar mt-2">
+                <div id="rs-bar" class="progress-fill" style="width:0%"></div>
+              </div>
+              <div id="rs-trend" class="text-[10px] mono mt-1"></div>
+            </div>
+            <div class="bg-[#111827] border border-[#1e293b] rounded-lg p-3">
+              <div class="text-[10px] mono text-[#64748b] uppercase tracking-widest mb-1">Pattern</div>
+              <div id="pattern-name" class="text-xs font-bold text-sky-300 leading-tight"></div>
+              <div class="flex items-center gap-1 mt-2">
+                <div class="progress-bar flex-1">
+                  <div id="quality-bar" class="progress-fill" style="width:0%"></div>
+                </div>
+                <span id="quality-val" class="text-[10px] mono text-[#64748b]"></span>
+              </div>
+              <div id="base-stage" class="text-[10px] mono text-[#64748b] mt-1"></div>
+            </div>
+          </div>
+
+          <!-- 피봇 + 거래량 -->
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-[#111827] border border-[#1e293b] rounded-lg p-3">
+              <div class="text-[10px] mono text-[#64748b] uppercase tracking-widest mb-1">Pivot Point</div>
+              <div id="pivot-val" class="text-lg font-bold mono text-emerald-400"></div>
+            </div>
+            <div class="bg-[#111827] border border-[#1e293b] rounded-lg p-3">
+              <div class="text-[10px] mono text-[#64748b] uppercase tracking-widest mb-1">Volume</div>
+              <div id="vol-trend" class="text-sm font-bold mono"></div>
+            </div>
+          </div>
+
+          <!-- CAN SLIM 체크 -->
+          <div class="bg-[#111827] border border-[#1e293b] rounded-lg p-3">
+            <div class="text-[10px] mono text-[#64748b] uppercase tracking-widest mb-2">CAN SLIM</div>
+            <div id="canslim-grid" class="grid grid-cols-7 gap-1.5"></div>
+          </div>
+
+          <!-- 패턴 결함 -->
+          <div id="faults-card" class="hidden bg-[#1a1206] border border-yellow-900/50 rounded-lg p-3">
+            <div class="text-[10px] mono text-yellow-600 uppercase tracking-widest mb-1.5">Pattern Faults</div>
+            <ul id="faults-list" class="text-yellow-400 text-xs space-y-0.5 mono"></ul>
+          </div>
+
+          <!-- 타임스탬프 -->
+          <p id="summary-ts" class="text-[#374151] mono text-[10px] text-right"></p>
+        </div>
+      </div>
+
+      <!-- ── TAB: 분석 전문 ── -->
+      <div id="tab-analysis" class="tab-content flex-1 overflow-y-auto p-4" style="display:none; overflow-y:auto">
+        <div id="analysis-empty" class="flex flex-col items-center justify-center h-full gap-2 opacity-30">
+          <p class="text-[#374151] mono text-xs">분석 후 전문이 여기에 표시됩니다</p>
+        </div>
+        <div id="analysis-text-body" class="analysis-text hidden text-[#cbd5e1] text-xs leading-relaxed fade-in"></div>
+      </div>
+
+      <!-- ── TAB: 질문하기 ── -->
+      <div id="tab-chat" class="tab-content flex-col" style="display:none; flex:1; min-height:0">
+        <div id="chat-empty" class="flex flex-col items-center justify-center flex-1 gap-2 opacity-30">
+          <p class="text-[#374151] mono text-xs text-center">분석 완료 후<br>AI에게 질문할 수 있습니다</p>
+        </div>
+        <div id="chat-messages" class="hidden flex-1 overflow-y-auto p-3 space-y-3"></div>
+        <div id="chat-input-area" class="hidden border-t border-[#1e293b] p-3 gap-2 flex items-end">
+          <textarea id="chat-input"
+            class="input-field flex-1 px-3 py-2 text-xs resize-none"
+            style="min-height:36px; max-height:100px"
+            placeholder="분석 결과에 대해 질문하세요..."
+            rows="1"
+            onkeydown="handleChatKey(event)"></textarea>
+          <button onclick="sendChat()"
+            class="btn btn-sky text-xs px-3 py-2 flex-shrink-0">전송</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       BOTTOM WATCHLIST
+  ══════════════════════════════════════════════════════ -->
+  <div class="flex items-center border-t border-[#1e293b] bg-[#0d1117] overflow-x-auto" style="height:38px; flex-shrink:0">
+    <div id="watchlist" class="flex h-full">
+      <!-- JS로 렌더링 -->
+    </div>
+    <button onclick="addWatchlistTicker()" class="px-3 text-[#374151] hover:text-sky-400 text-lg mono flex-shrink-0 h-full border-l border-[#1e293b]">+</button>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       SCRIPT
+  ══════════════════════════════════════════════════════ -->
+  <script>
+  const API_URL = "https://oneil-ai-1073242702988.asia-northeast3.run.app";
+  const YF_PROXY = "https://corsproxy.io/?";
+
+  // ── 상태 ──────────────────────────────────────────────
+  let state = {
+    ticker:   "AAPL",
+    interval: "1wk",
+    period:   "2y",
+    chartData: null,
+    analysisResult: null,
+    chatHistory: [],   // [{role, content}]
+  };
+
+  let lwChart = null;
+  let candleSeries = null;
+  let ma1Series = null;
+  let ma2Series = null;
+  let volumeSeries = null;
+  let pivotMarkers = [];
+
+  const WATCHLIST = ["AAPL", "NVDA", "MSFT", "TSLA", "GOOGL", "META", "AMZN", "005930.KS"];
+
+  const LOADING_MSGS = [
+    "서버 연결 중...",
+    "주가 데이터 다운로드 중...",
+    "패턴 감지 엔진 실행 중...",
+    "펀더멘털 분석 중...",
+    "차트 생성 중...",
+    "Gemini AI 분석 중...",
+    "결과 처리 중...",
+  ];
+
+  // ── 초기화 ────────────────────────────────────────────
+  window.addEventListener("load", () => {
+    initChart();
+    renderWatchlist();
+    updateClock();
+    setInterval(updateClock, 1000);
+    document.getElementById("ticker-input").addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        const val = e.target.value.trim().toUpperCase();
+        if (val) loadTicker(val);
+      }
+    });
+    document.getElementById("ticker-input").addEventListener("input", e => {
+      const pos = e.target.selectionStart;
+      e.target.value = e.target.value.toUpperCase();
+      e.target.setSelectionRange(pos, pos);
+    });
+    // 탭 초기 상태 (요약 탭만 표시)
+    switchTab("summary");
+    // 기본 종목 로드
+    loadTicker("AAPL");
+  });
+
+  function updateClock() {
+    document.getElementById("clock").textContent =
+      new Date().toLocaleTimeString("ko-KR", { hour12: false });
+  }
+
+  // ── 차트 초기화 ───────────────────────────────────────
+  function initChart() {
+    const container = document.getElementById("chart-container");
+    lwChart = LightweightCharts.createChart(container, {
+      layout: {
+        background: { color: "#0b0f1a" },
+        textColor: "#64748b",
+      },
+      grid: {
+        vertLines: { color: "#0f172a" },
+        horzLines: { color: "#0f172a" },
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+        vertLine: { color: "#1e293b", labelBackgroundColor: "#0f172a" },
+        horzLine: { color: "#1e293b", labelBackgroundColor: "#0f172a" },
+      },
+      rightPriceScale: { borderColor: "#1e293b" },
+      timeScale: {
+        borderColor: "#1e293b",
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      handleScroll: true,
+      handleScale: true,
+    });
+
+    // 캔들 시리즈
+    candleSeries = lwChart.addCandlestickSeries({
+      upColor:   "#22c55e",
+      downColor: "#ef4444",
+      borderUpColor:   "#22c55e",
+      borderDownColor: "#ef4444",
+      wickUpColor:   "#22c55e",
+      wickDownColor: "#ef4444",
+    });
+
+    // MA 시리즈
+    ma1Series = lwChart.addLineSeries({ color: "#60a5fa", lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false });
+    ma2Series = lwChart.addLineSeries({ color: "#fb923c", lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false });
+
+    // 볼륨 시리즈
+    volumeSeries = lwChart.addHistogramSeries({
+      color: "#1e293b",
+      priceFormat: { type: "volume" },
+      priceScaleId: "volume",
+    });
+    lwChart.priceScale("volume").applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    // 크로스헤어 이동 시 OHLCV 표시
+    lwChart.subscribeCrosshairMove(param => {
+      if (!param.time || !state.chartData) return;
+      const bar = state.chartData.candles.find(c => c.time === param.time);
+      if (!bar) return;
+      const prev = state.chartData.candles[state.chartData.candles.indexOf(bar) - 1];
+      const chg = prev ? ((bar.close - prev.close) / prev.close * 100) : 0;
+      const chgColor = chg >= 0 ? "text-emerald-400" : "text-red-400";
+      document.getElementById("info-o").innerHTML = `O <span class="text-[#e2e8f0]">${bar.open.toFixed(2)}</span>`;
+      document.getElementById("info-h").innerHTML = `H <span class="text-emerald-400">${bar.high.toFixed(2)}</span>`;
+      document.getElementById("info-l").innerHTML = `L <span class="text-red-400">${bar.low.toFixed(2)}</span>`;
+      document.getElementById("info-c").innerHTML = `C <span class="text-[#e2e8f0]">${bar.close.toFixed(2)}</span>`;
+      document.getElementById("info-chg").innerHTML = `<span class="${chgColor}">${chg >= 0 ? "+" : ""}${chg.toFixed(2)}%</span>`;
+      document.getElementById("info-vol").innerHTML = `Vol <span class="text-[#e2e8f0]">${fmtVol(bar.volume)}</span>`;
+      document.getElementById("info-date").textContent = new Date(bar.time * 1000).toLocaleDateString("ko-KR");
+    });
+
+    // 리사이즈
+    const ro = new ResizeObserver(() => {
+      const el = document.getElementById("chart-container");
+      lwChart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+    });
+    ro.observe(document.getElementById("chart-container"));
+  }
+
+  // ── 종목 로드 (차트 데이터) ───────────────────────────
+  async function loadTicker(ticker) {
+    state.ticker = ticker;
+    document.getElementById("ticker-input").value = ticker;
+    setActiveWatchlist(ticker);
+    document.getElementById("chart-empty").classList.add("hidden");
+    document.getElementById("chart-loading").classList.remove("hidden");
+    document.getElementById("chart-error").classList.add("hidden");
+    document.getElementById("chart-infobar").classList.add("hidden");
+    document.getElementById("chart-legend").classList.add("hidden");
+
+    // ── 분석 결과 초기화 ──
+    state.analysisResult = null;
+    state.chatHistory = [];
+    hideEl("ticker-badge");
+    hideEl("analysis-error");
+    hideEl("summary-content");
+    showEl("summary-empty");
+    hideEl("analysis-text-body");
+    showEl("analysis-empty");
+    document.getElementById("chat-messages").innerHTML = "";
+    hideEl("chat-messages");
+    hideEl("chat-input-area");
+    showEl("chat-empty");
+    candleSeries.setMarkers([]);
+    switchTab("summary");
+
+    // 분석 버튼 활성화 판단
+    document.getElementById("analyze-btn").disabled = true;
+
+    try {
+      const data = await fetchChartData(ticker, state.interval, state.period);
+      state.chartData = data;
+      renderChart(data);
+      document.getElementById("chart-loading").classList.add("hidden");
+      document.getElementById("chart-infobar").classList.remove("hidden");
+      document.getElementById("chart-infobar").classList.add("flex");
+      document.getElementById("chart-legend").classList.remove("hidden");
+      checkAnalyzeEnabled();
+    } catch (e) {
+      document.getElementById("chart-loading").classList.add("hidden");
+      const errEl = document.getElementById("chart-error");
+      errEl.classList.remove("hidden");
+      errEl.querySelector("div").textContent = `데이터 로드 실패: ${e.message}`;
+    }
+  }
+
+  // ── Yahoo Finance 데이터 fetch ─────────────────────────
+  async function fetchChartData(ticker, interval, period) {
+    // 기간 매핑
+    const rangeMap = { "6mo": "6mo", "1y": "1y", "2y": "2y", "3y": "3y" };
+    const range = rangeMap[period] || "2y";
+
+    const yfUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}`;
+    const url = YF_PROXY + encodeURIComponent(yfUrl);
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+
+    const result = json?.chart?.result?.[0];
+    if (!result) throw new Error("데이터 없음");
+
+    const timestamps = result.timestamp;
+    const quote = result.indicators.quote[0];
+    const { open, high, low, close, volume } = quote;
+
+    // OHLCV 정제
+    const candles = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      if (open[i] == null || close[i] == null) continue;
+      candles.push({
+        time:   timestamps[i],
+        open:   open[i],
+        high:   high[i],
+        low:    low[i],
+        close:  close[i],
+        volume: volume[i] || 0,
+      });
+    }
+    if (candles.length === 0) throw new Error("유효 데이터 없음");
+
+    // MA 계산
+    const shortW = interval === "1wk" ? 10 : 50;
+    const longW  = interval === "1wk" ? 40 : 200;
+    const ma1 = calcMA(candles, shortW);
+    const ma2 = calcMA(candles, longW);
+
+    return { candles, ma1, ma2, shortW, longW, ticker };
+  }
+
+  function calcMA(candles, window_) {
+    const result = [];
+    for (let i = 0; i < candles.length; i++) {
+      if (i < window_ - 1) continue;
+      const sum = candles.slice(i - window_ + 1, i + 1).reduce((s, c) => s + c.close, 0);
+      result.push({ time: candles[i].time, value: sum / window_ });
+    }
+    return result;
+  }
+
+  // ── 차트 렌더링 ───────────────────────────────────────
+  function renderChart(data) {
+    candleSeries.setData(data.candles);
+    ma1Series.setData(data.ma1);
+    ma2Series.setData(data.ma2);
+
+    const volData = data.candles.map(c => ({
+      time:  c.time,
+      value: c.volume,
+      color: c.close >= c.open ? "#166534" : "#7f1d1d",
+    }));
+    volumeSeries.setData(volData);
+
+    lwChart.timeScale().fitContent();
+
+    // 범례
+    const isWeekly = state.interval === "1wk";
+    document.getElementById("legend-ticker").textContent = data.ticker;
+    document.getElementById("legend-interval").textContent = isWeekly ? "WEEKLY" : "DAILY";
+    document.getElementById("legend-ma1").textContent = isWeekly ? `${data.shortW}W MA` : `${data.shortW}D MA`;
+    document.getElementById("legend-ma2").textContent = isWeekly ? `${data.longW}W MA` : `${data.longW}D MA`;
+
+    // 피봇 마커 (분석 결과 있으면 표시)
+    if (state.analysisResult) renderPivotMarker(state.analysisResult);
+  }
+
+  // ── 피봇 포인트 마커 ──────────────────────────────────
+  function renderPivotMarker(result) {
+    const bp = result?.pattern_data?.best_pattern;
+    if (!bp?.pivot_point || !state.chartData) return;
+
+    // 마지막 캔들에 마커
+    const last = state.chartData.candles[state.chartData.candles.length - 1];
+    candleSeries.setMarkers([{
+      time:     last.time,
+      position: "aboveBar",
+      color:    "#f59e0b",
+      shape:    "arrowDown",
+      text:     `Pivot $${bp.pivot_point.toFixed(2)}`,
+      size:     1,
+    }]);
+
+    // 피봇 가격선
+    candleSeries.createPriceLine({
+      price:       bp.pivot_point,
+      color:       "#f59e0b",
+      lineWidth:   1,
+      lineStyle:   LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: true,
+      title:       "Pivot",
+    });
+  }
+
+  // ── 분석 최소 기간 체크 ───────────────────────────────
+  function checkAnalyzeEnabled() {
+    if (!state.chartData) return;
+    const n = state.chartData.candles.length;
+    const minBars = state.interval === "1d" ? 120 : 72; // 6개월(일봉) or 18개월(주봉)
+    const enabled = n >= minBars;
+    document.getElementById("analyze-btn").disabled = !enabled;
+    if (!enabled) {
+      document.getElementById("analyze-btn").title =
+        `최소 ${state.interval === "1d" ? "6개월" : "18개월"} 데이터 필요 (현재: ${n}봉)`;
+    }
+  }
+
+  // ── AI 분석 실행 ──────────────────────────────────────
+  async function runAnalysis() {
+    const ticker = state.ticker;
+    const interval = state.interval;
+
+    setAnalysisLoading(true);
+    hideEl("analysis-error");
+    switchTab("summary");
+    hideEl("summary-content");
+    hideEl("summary-empty");
+
+    let step = 0;
+    document.getElementById("analysis-loading-msg").textContent = LOADING_MSGS[0];
+    const timer = setInterval(() => {
+      step = Math.min(step + 1, LOADING_MSGS.length - 1);
+      document.getElementById("analysis-loading-msg").textContent = LOADING_MSGS[step];
+    }, 9000);
+
+    try {
+      try { await fetch(`${API_URL}/health`); } catch (_) {}
+
+      const ctrl = new AbortController();
+      const timeout = setTimeout(() => ctrl.abort(), 200000);
+
+      const res = await fetch(`${API_URL}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticker, mode: "v2", interval }),
+        signal: ctrl.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `서버 오류 (${res.status})`);
+      }
+
+      const data = await res.json();
+      state.analysisResult = data;
+      state.chatHistory = [];
+
+      renderSummary(data);
+      renderAnalysisText(data.analysis);
+      resetChat();
+      renderPivotMarker(data);
+
+      // 탑바 뱃지
+      const verdict = extractVerdict(data.analysis);
+      const rsRating = data.pattern_data?.rs_analysis?.rs_rating;
+      document.getElementById("badge-name").textContent = ticker;
+      setVerdictBadge("badge-verdict", verdict);
+      document.getElementById("badge-rs").textContent = rsRating != null ? `RS ${rsRating}/99` : "";
+      showEl("ticker-badge");
+      document.getElementById("ticker-badge").classList.add("flex");
+
+    } catch (err) {
+      const msg = err.name === "AbortError"
+        ? "분석 시간 초과. 다시 시도해주세요."
+        : (err.message || "알 수 없는 오류");
+      showEl("analysis-error");
+      document.getElementById("analysis-error").textContent = "⚠ " + msg;
+      showEl("summary-empty");
+    } finally {
+      clearInterval(timer);
+      setAnalysisLoading(false);
+    }
+  }
+
+  // ── 요약 탭 렌더링 ────────────────────────────────────
+  function renderSummary(data) {
+    const pd = data.pattern_data || {};
+    const bp = pd.best_pattern || null;
+    const rs = pd.rs_analysis || {};
+    const vol = pd.volume_analysis || {};
+    const faults = pd.pattern_faults || [];
+    const stage = pd.base_stage?.estimated_stage;
+    const verdict = extractVerdict(data.analysis);
+
+    // 판정 카드
+    const vColors = {
+      "BUY NOW":      { bg: "bg-emerald-950", border: "border-emerald-700", text: "text-emerald-300" },
+      "WATCH & WAIT": { bg: "bg-yellow-950",  border: "border-yellow-700",  text: "text-yellow-300" },
+      "AVOID":        { bg: "bg-red-950",      border: "border-red-700",     text: "text-red-300"    },
+    };
+    const vc = vColors[verdict] || vColors["WATCH & WAIT"];
+    const vCard = document.getElementById("verdict-card");
+    vCard.className = `rounded-lg p-4 border text-center ${vc.bg} ${vc.border}`;
+    document.getElementById("verdict-text").className = `text-2xl font-black mono ${vc.text}`;
+    document.getElementById("verdict-text").textContent = verdict;
+
+    // RS
+    if (rs.rs_rating != null) {
+      const r = rs.rs_rating;
+      const rColor = r >= 80 ? "text-emerald-400" : r >= 50 ? "text-yellow-400" : "text-red-400";
+      document.getElementById("rs-value").className = `text-xl font-bold mono ${rColor}`;
+      document.getElementById("rs-value").textContent = r;
+      document.getElementById("rs-bar").style.width = r + "%";
+      document.getElementById("rs-bar").className = `progress-fill ${r >= 80 ? "bg-emerald-500" : r >= 50 ? "bg-yellow-500" : "bg-red-500"}`;
+      const trend = rs.rs_trend || "";
+      document.getElementById("rs-trend").textContent = trend;
+      document.getElementById("rs-trend").className = `text-[10px] mono mt-1 ${trend === "RISING" ? "text-emerald-400" : trend === "FALLING" ? "text-red-400" : "text-yellow-400"}`;
+    } else {
+      document.getElementById("rs-value").textContent = "N/A";
+    }
+
+    // 패턴
+    document.getElementById("pattern-name").textContent = bp?.type || "No Pattern";
+    if (bp?.quality_score != null) {
+      const q = bp.quality_score;
+      document.getElementById("quality-val").textContent = `${q}/100`;
+      document.getElementById("quality-bar").style.width = q + "%";
+      document.getElementById("quality-bar").className = `progress-fill ${q >= 70 ? "bg-emerald-500" : q >= 50 ? "bg-yellow-500" : "bg-red-500"}`;
+    }
+    document.getElementById("base-stage").textContent = stage ? `Stage ${stage}` : "";
+
+    // 피봇
+    document.getElementById("pivot-val").textContent =
+      bp?.pivot_point != null ? `$${bp.pivot_point.toFixed(2)}` : "—";
+
+    // 거래량
+    const trend = vol.recent_volume_trend || "N/A";
+    const volEl = document.getElementById("vol-trend");
+    volEl.textContent = trend;
+    volEl.className = `text-sm font-bold mono ${trend === "ACCUMULATION" ? "text-emerald-400" : trend === "DISTRIBUTION" ? "text-red-400" : "text-yellow-400"}`;
+
+    // CAN SLIM
+    renderCanSlim(data.analysis);
+
+    // 결함
+    if (faults.length > 0) {
+      document.getElementById("faults-list").innerHTML = faults.map(f => `<li>· ${f}</li>`).join("");
+      showEl("faults-card");
+    } else {
+      hideEl("faults-card");
+    }
+
+    // 타임스탬프
+    document.getElementById("summary-ts").textContent =
+      new Date(data.timestamp).toLocaleString("ko-KR");
+
+    showEl("summary-content");
+    hideEl("summary-empty");
+  }
+
+  function renderCanSlim(text) {
+    const grid = document.getElementById("canslim-grid");
+    grid.innerHTML = "";
+    const letters = ["C","A","N","S","L","I","M"];
+    const labels  = ["실적","연간","신제품","수급","리더","기관","시장"];
+
+    letters.forEach((letter, i) => {
+      // 분석 텍스트에서 PASS/FAIL 힌트 찾기
+      const re = new RegExp(`${letter}[^\\n]*?(PASS|FAIL|합격|불합격|충족|미충족|✅|❌|⚠)`, "i");
+      const m = text.match(re);
+      let status = "?";
+      let color = "text-[#64748b]";
+      if (m) {
+        const s = m[1] || m[0];
+        if (/pass|합격|충족|✅/i.test(s)) { status = "✓"; color = "text-emerald-400"; }
+        else if (/fail|불합격|미충족|❌/i.test(s)) { status = "✗"; color = "text-red-400"; }
+        else { status = "△"; color = "text-yellow-400"; }
+      }
+      const div = document.createElement("div");
+      div.className = "canslim-item";
+      div.innerHTML = `
+        <span class="canslim-letter text-[#e2e8f0]">${letter}</span>
+        <span class="canslim-status ${color} font-bold">${status}</span>
+        <span class="text-[9px] text-[#374151] mt-0.5 mono">${labels[i]}</span>
+      `;
+      grid.appendChild(div);
+    });
+  }
+
+  // ── 분석 전문 탭 ──────────────────────────────────────
+  function renderAnalysisText(text) {
+    const body = document.getElementById("analysis-text-body");
+    body.innerHTML = formatMarkdown(text);
+    showEl("analysis-text-body");
+    hideEl("analysis-empty");
+  }
+
+  function formatMarkdown(text) {
+    if (!text) return "<p>분석 결과가 없습니다.</p>";
+    text = text.replace(/```json[\s\S]*?```/g, "").trim();
+    return text
+      .replace(/^#### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/^---+$/gm, "<hr>")
+      .split("\n").map(line => line.trim() ? `<p>${line}</p>` : "").join("");
+  }
+
+  // ── 채팅 ──────────────────────────────────────────────
+  function resetChat() {
+    state.chatHistory = [];
+    document.getElementById("chat-messages").innerHTML = "";
+    showEl("chat-messages");
+    showEl("chat-input-area");
+    hideEl("chat-empty");
+  }
+
+  function handleChatKey(e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  }
+
+  async function sendChat() {
+    const input = document.getElementById("chat-input");
+    const msg = input.value.trim();
+    if (!msg || !state.analysisResult) return;
+    input.value = "";
+
+    appendChatMsg("user", msg);
+    state.chatHistory.push({ role: "user", content: msg });
+
+    // 간단한 컨텍스트 포함 프롬프트로 Gemini 호출
+    // (백엔드에 /chat 엔드포인트가 없으므로 /analyze 결과 텍스트 기반 답변 시뮬레이션)
+    const thinkingEl = appendChatMsg("bot", "...");
+    thinkingEl.querySelector(".msg-text").classList.add("animate-pulse");
+
+    try {
+      // 현재 분석 컨텍스트 요약
+      const context = `
+[분석 종목: ${state.analysisResult.ticker}]
+[분석 결과 요약]:
+${state.analysisResult.analysis.slice(0, 2000)}
+...
+[사용자 질문]: ${msg}
+위 분석 내용을 바탕으로 질문에 간결하게 한국어로 답변해주세요.`;
+
+      // /analyze 엔드포인트가 chat을 지원하지 않으므로
+      // 프론트에서 직접 Gemini 호출은 불가 (API Key 보안 문제)
+      // → 백엔드에 /chat 엔드포인트 추가 필요 알림
+      thinkingEl.querySelector(".msg-text").textContent =
+        "💡 채팅 기능은 백엔드에 /chat 엔드포인트가 필요합니다.\n" +
+        "yanghee에게 SSE 스트리밍 채팅 API 추가를 요청해주세요!\n\n" +
+        `질문: "${msg}"\n` +
+        `참고: 현재 분석 결과의 FINAL VERDICT = ${extractVerdict(state.analysisResult.analysis)}`;
+      thinkingEl.querySelector(".msg-text").classList.remove("animate-pulse");
+    } catch (e) {
+      thinkingEl.querySelector(".msg-text").textContent = "오류: " + e.message;
+      thinkingEl.querySelector(".msg-text").classList.remove("animate-pulse");
+    }
+  }
+
+  function appendChatMsg(role, text) {
+    const container = document.getElementById("chat-messages");
+    const div = document.createElement("div");
+    div.className = `flex ${role === "user" ? "justify-end" : "justify-start"}`;
+    div.innerHTML = `
+      <div class="chat-msg-${role} max-w-[85%] px-3 py-2 text-xs leading-relaxed">
+        <span class="msg-text whitespace-pre-wrap">${text}</span>
+      </div>`;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+  }
+
+  // ── 워치리스트 ────────────────────────────────────────
+  function renderWatchlist() {
+    const container = document.getElementById("watchlist");
+    container.innerHTML = "";
+    WATCHLIST.forEach(t => {
+      const div = document.createElement("div");
+      div.className = "ticker-item mono text-xs font-bold" +
+        (t === state.ticker ? " active" : "");
+      div.dataset.ticker = t;
+      div.innerHTML = `<span class="text-[#e2e8f0]">${t}</span>`;
+      div.onclick = () => loadTicker(t);
+      container.appendChild(div);
+    });
+  }
+
+  function setActiveWatchlist(ticker) {
+    document.querySelectorAll(".ticker-item").forEach(el => {
+      el.classList.toggle("active", el.dataset.ticker === ticker);
+    });
+  }
+
+  function addWatchlistTicker() {
+    const t = prompt("종목 코드 입력:")?.trim().toUpperCase();
+    if (t && !WATCHLIST.includes(t)) {
+      WATCHLIST.push(t);
+      renderWatchlist();
+      loadTicker(t);
+    }
+  }
+
+  // ── 인터벌/기간 변경 ──────────────────────────────────
+  function setInterval_(interval) {
+    state.interval = interval;
+    document.getElementById("btn-1wk").className =
+      `btn text-xs px-3 py-1 ${interval === "1wk" ? "btn-active" : "btn-outline"}`;
+    document.getElementById("btn-1d").className =
+      `btn text-xs px-3 py-1 ${interval === "1d"  ? "btn-active" : "btn-outline"}`;
+    if (state.ticker) loadTicker(state.ticker);
+  }
+
+  function setPeriod(period) {
+    state.period = period;
+    document.querySelectorAll(".period-btn").forEach(btn => {
+      const isActive = btn.dataset.p === period;
+      btn.className = `btn text-xs px-2 py-1 period-btn ${isActive ? "btn-active" : "btn-outline"}`;
+    });
+    if (state.ticker) loadTicker(state.ticker);
+  }
+
+  // ── 탭 전환 ───────────────────────────────────────────
+  function switchTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      const active = btn.dataset.tab === tab;
+      btn.className = `tab-btn flex-1 py-2 text-xs mono font-bold ${active ? "text-sky-400 border-b-2 border-sky-500" : "text-[#64748b] border-b-2 border-transparent"}`;
+    });
+    // 모든 탭 숨김 (인라인 스타일도 초기화)
+    document.querySelectorAll(".tab-content").forEach(el => {
+      el.style.display = "none";
+    });
+    // 선택 탭만 표시 (chat은 flex, 나머지는 block/overflow-y-auto)
+    const activeEl = document.getElementById("tab-" + tab);
+    if (activeEl) {
+      activeEl.style.display = tab === "chat" ? "flex" : "block";
+      if (tab === "chat") activeEl.style.flexDirection = "column";
+    }
+  }
+
+  // ── 유틸 ──────────────────────────────────────────────
+  function extractVerdict(text) {
+    const m = text?.match(/"verdict":\s*"([^"]+)"/)
+           || text?.match(/\*\*(BUY NOW|WATCH & WAIT|AVOID)\*\*/)
+           || text?.match(/(BUY NOW|WATCH & WAIT|AVOID)/);
+    return m ? m[1] : "N/A";
+  }
+
+  function setVerdictBadge(elId, verdict) {
+    const el = document.getElementById(elId);
+    el.textContent = verdict;
+    const map = {
+      "BUY NOW":      "bg-emerald-900 text-emerald-300 border border-emerald-700",
+      "WATCH & WAIT": "bg-yellow-950 text-yellow-300 border border-yellow-800",
+      "AVOID":        "bg-red-950 text-red-300 border border-red-800",
+    };
+    el.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold mono verdict-pulse ${map[verdict] || map["WATCH & WAIT"]}`;
+  }
+
+  function setAnalysisLoading(on) {
+    document.getElementById("analysis-loading").style.display = on ? "flex" : "none";
+    document.getElementById("analyze-btn").disabled = on;
+  }
+
+  function showEl(id) { const el = document.getElementById(id); if (el) el.classList.remove("hidden"); }
+  function hideEl(id) { const el = document.getElementById(id); if (el) el.classList.add("hidden"); }
+
+  function fmtVol(v) {
+    if (!v) return "0";
+    if (v >= 1e9) return (v / 1e9).toFixed(1) + "B";
+    if (v >= 1e6) return (v / 1e6).toFixed(1) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(0) + "K";
+    return String(v);
+  }
+  </script>
+</body>
+</html>

@@ -294,8 +294,10 @@ Based on the chart image, code-detected pattern data, AND CAN SLIM fundamental d
 [Analyze using moving averages. Is stock above/below 10-week and 40-week MA?]
 
 ### 2. Pattern Recognition
-[Evaluate the code-detected pattern. Do you agree with the detection? Is the pattern valid per O'Neil's criteria?
-If code detected a pattern, assess its quality. If no pattern was detected, explain what you see.]
+[Evaluate the code-detected pattern honestly.
+- If a pattern was detected by code: assess its quality and confirm or challenge the detection.
+- If NO pattern was detected (best_pattern is None): clearly state "현재 명확한 베이스 패턴이 형성되지 않았습니다" and explain the current chart structure instead (e.g., uptrend, downtrend, consolidation, extended, etc.).
+- Do NOT force a pattern label when one doesn't exist. Ambiguous structures are NOT Cup with Handle.]
 
 ### 3. Volume Behavior
 [Use both the chart and the code-detected volume analysis. Are accumulation/distribution days concerning?]
