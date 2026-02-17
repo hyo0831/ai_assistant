@@ -169,36 +169,42 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
 
 def _calculate_cup_quality(depth, handle_depth, vol_dryup,
                            weeks_at_bottom, duration, handle_in_upper_half):
-    """오닐 기준 Cup-with-Handle 품질 점수 (0~100)"""
-    score = 50
+    """오닐 기준 Cup-with-Handle 품질 점수 (0~100)
+    기본 점수 0에서 시작 — 조건을 충족해야만 점수가 쌓임
+    """
+    score = 0
 
-    # 깊이: 12~25%가 이상적
+    # 깊이: 12~25%가 이상적 (필수 조건)
     if 12 <= depth <= 25:
-        score += 15
+        score += 25
     elif 25 < depth <= 33:
-        score += 5
+        score += 15
     else:
-        score -= 10
+        score += 5  # 33~50%는 약세장 기준, 최소 점수만
 
     # 핸들 깊이: 8~12%가 이상적
-    if handle_depth <= 12:
+    if handle_depth <= 8:
+        score += 15
+    elif handle_depth <= 12:
         score += 10
     elif handle_depth <= 15:
         score += 5
 
-    # 거래량 건조
+    # 거래량 건조 (핸들 구간)
     if vol_dryup:
-        score += 15
+        score += 20
 
-    # U자형 바닥
-    if weeks_at_bottom >= 3:
-        score += 10
+    # U자형 바닥 (V자 배제)
+    if weeks_at_bottom >= 4:
+        score += 20
+    elif weeks_at_bottom >= 3:
+        score += 12
     elif weeks_at_bottom >= 2:
-        score += 5
+        score += 6
 
-    # 핸들 위치
+    # 핸들이 베이스 상단 절반에 위치 (필수 조건)
     if handle_in_upper_half:
-        score += 10
+        score += 15
 
     # 기간 (7-30주가 이상적)
     if 7 <= duration <= 30:
@@ -946,11 +952,16 @@ def run_pattern_detection(df: pd.DataFrame, ticker: str = "") -> Dict:
     htf_patterns = detect_high_tight_flag(df)
     all_patterns.extend(htf_patterns)
 
-    # 최고 품질 패턴 선택
+    # 최고 품질 패턴 선택 (최소 임계값 55점 이상만 인정)
+    MIN_QUALITY_THRESHOLD = 55
     best_pattern = None
     if all_patterns:
-        best_pattern = max(all_patterns, key=lambda p: p.get('quality_score', 0))
-        print(f"  [OK] Best pattern: {best_pattern['type']} (quality: {best_pattern['quality_score']})")
+        candidate = max(all_patterns, key=lambda p: p.get('quality_score', 0))
+        if candidate.get('quality_score', 0) >= MIN_QUALITY_THRESHOLD:
+            best_pattern = candidate
+            print(f"  [OK] Best pattern: {best_pattern['type']} (quality: {best_pattern['quality_score']})")
+        else:
+            print(f"  [--] Patterns found but quality too low (best: {candidate['type']} {candidate.get('quality_score', 0)}/100 < {MIN_QUALITY_THRESHOLD}) → No clear pattern")
     else:
         print("  [--] No clear pattern detected")
 
