@@ -13,8 +13,7 @@ from core.result_manager import save_analysis_result
 from core.feedback_manager import FeedbackManager, collect_feedback
 from core.pattern_detector import run_pattern_detection
 from core.fundamental_analyzer import analyze_fundamentals
-from core.history_analyzer import build_history_context, get_history_summary
-from core.version import VERSION, VERSION_NAME
+from core.version import VERSION
 
 
 def _print_analysis_result(analysis: str, rs_info: dict = None):
@@ -289,7 +288,8 @@ def main_compare(tickers: list):
         print()
 
 
-if __name__ == "__main__":
+def main():
+    """대화형 CLI 메뉴 진입점"""
     print()
     print("=" * 80)
     print(f"  WILLIAM O'NEIL AI INVESTMENT ASSISTANT  v{VERSION}")
@@ -335,3 +335,7 @@ if __name__ == "__main__":
         else:
             main_v2(ticker, interval=interval, period=period,
                     short_ma=short_ma, long_ma=long_ma)
+
+
+if __name__ == "__main__":
+    main()

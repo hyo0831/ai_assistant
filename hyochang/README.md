@@ -20,8 +20,8 @@
 ```
 hyochang/
 │
-├── main.py                      # 진입점 (하위 호환 re-export 레이어)
-├── cli.py                       # CLI 실행 로직 (main_v1, main_v2, main_compare)
+├── main.py                      # 진입점 (python main.py로 실행)
+├── cli.py                       # CLI 실행 로직 (main_v1, main_v2, main_compare, main)
 ├── requirements.txt
 │
 ├── core/                        # 핵심 비즈니스 로직 (FastAPI에서 직접 import 가능)
@@ -46,12 +46,15 @@ hyochang/
 │   ├── i_institutional.py       # I: 기관 보유
 │   └── m_market_direction.py    # M: 시장 방향 (Distribution Day)
 │
-├── results/                     # 분석 결과 저장 (chart.png + JSON 자동 생성)
-├── feedback/                    # 피드백 데이터
-├── scripts/                     # 유틸리티 스크립트
+├── frontend/
+│   └── index.html               # 웹 UI (TradingView 차트 + AI 분석 패널)
+├── results/                     # 분석 결과 자동 저장 (chart.png + JSON)
+├── feedback/                    # 사용자 피드백 데이터 (AI 학습용)
+├── scripts/
 │   ├── quick_test.py            # 환경 사전 검증
 │   └── list_models.py           # 사용 가능한 Gemini 모델 조회
-└── prompt/                      # AI 프롬프트 문서
+└── prompt/
+    └── chart_analysis_technical_spec.md  # 차트 분석 기술 명세 문서
 ```
 
 ---
@@ -275,7 +278,15 @@ cp .env.example .env
 python main.py
 ```
 
-### 4. 사전 환경 검증
+### 4. FastAPI 서버 실행 (웹 UI 연동)
+
+```bash
+uvicorn api:app --reload
+# → http://localhost:8000
+# → frontend/index.html을 브라우저에서 열어 사용
+```
+
+### 5. 사전 환경 검증
 
 ```bash
 python scripts/quick_test.py
@@ -330,6 +341,8 @@ python scripts/quick_test.py
 | `google-genai` | Gemini AI API |
 | `python-dotenv` | `.env` 파일 자동 로딩 |
 | `Pillow` | 차트 이미지 처리 |
+| `fastapi` | REST API 서버 (웹 UI 백엔드) |
+| `uvicorn` | FastAPI ASGI 서버 |
 
 ---
 
@@ -352,5 +365,5 @@ python scripts/quick_test.py
 ---
 
 **Created by:** hyochang team
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-17
 **License:** MIT (Educational Purpose)

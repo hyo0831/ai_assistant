@@ -6,7 +6,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 
 
 class FeedbackManager:
