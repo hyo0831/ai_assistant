@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORION AI - 투자파트너</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        
+        /* React Animate-in Polyfill */
+        .animate-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-[#F8FAFC]">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // 아이콘 컴포넌트 래퍼 (Lucide 사용을 위함)
+        const Icon = ({ name, className }) => {
+            const [ref, setRef] = React.useState(null);
+            React.useEffect(() => {
+                if (ref) lucide.createIcons({ targets: [ref] });
+            }, [ref, name]);
+            return <i ref={setRef} data-lucide={name} className={className}></i>;
+        };
+
+        // --- 서브 컴포넌트: 분석 모드 내용 ---
+        const AnalysisView = () => {
+            const [tab, setTab] = useState('종합');
+            
+            return (
+                <div className="space-y-6 animate-in">
+                    <div className="flex gap-2 border-b border-slate-200 pb-1">
+                        {['종합', '상세분석', 'CAN SLIM 스코어카드'].map(t => (
+                            <button 
+                                key={t}
+                                onClick={() => setTab(t)}
+                                className={`px-6 py-2 text-sm font-bold rounded-t-lg transition-all ${tab === t ? 'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50/50' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="min-h-[500px]">
+                        {tab === '종합' && (
+                            <div className="grid grid-cols-12 gap-6">
+                                <div className="col-span-8 space-y-6">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="font-bold flex items-center gap-2 mb-4 text-rose-600"><Icon name="alert-triangle" className="w-5 h-5"/> 추세 및 거래량 경고</h4>
+                                        <div className="space-y-3">
+                                            <div className="p-3 bg-slate-50 rounded-xl text-sm font-medium text-slate-700">🔴 10주 이평선 이탈: 대량 거래를 동반한 하향 돌파</div>
+                                            <div className="p-3 bg-slate-50 rounded-xl text-sm font-medium text-slate-700">🔴 매도세 집중: 최근 25일 중 5일 분산일 발생</div>
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                        <h4 className="font-bold flex items-center gap-2 mb-4 text-indigo-600"><Icon name="history" className="w-5 h-5"/> 과거 패턴 맥락</h4>
+                                        <div className="h-24 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 text-sm text-center px-4">
+                                            [타임라인 시각화 영역: 컵 생성 후 핸들 돌파 실패 및 하락 전환 패턴]
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="col-span-4 space-y-6">
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-center">
+                                        <h4 className="font-bold mb-4 text-slate-700">RS 성과</h4>
+                                        <div className="w-32 h-32 rounded-full border-[12px] border-slate-100 border-t-rose-500 mx-auto mb-4 flex items-center justify-center">
+                                            <span className="text-3xl font-black text-slate-800">47</span>
+                                        </div>
+                                        <span className="bg-rose-100 text-rose-600 px-3 py-1 rounded-full text-xs font-bold">심각한 후발주</span>
+                                    </div>
+                                    <div className="bg-slate-800 text-white p-6 rounded-2xl shadow-lg">
+                                        <h4 className="font-bold mb-4 flex items-center gap-2 text-slate-200"><Icon name="shield-alert" className="w-4 h-4 text-rose-400"/> 리스크 관리</h4>
+                                        <div className="mb-2 text-xs text-slate-400">8% 손절가 권장</div>
+                                        <div className="text-2xl font-black mb-4">$235.32</div>
+                                        <button className="w-full bg-rose-600 py-2 rounded-lg text-sm font-bold hover:bg-rose-700 transition-colors">매도 알림 설정</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {tab === '상세분석' && (
+                            <div className="grid grid-cols-2 gap-6">
+                                {[1,2,3,4,5,6].map(i => (
+                                    <div key={i} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[200px] flex flex-col items-center justify-center text-slate-400 border-dashed">
+                                        <span className="font-bold text-lg mb-2 text-slate-300">상세 분석 섹션 {i}</span>
+                                        <span className="text-xs">[그래프 및 정밀 데이터 배치 예정]</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {tab === 'CAN SLIM 스코어카드' && (
+                            <div className="grid grid-cols-12 gap-6">
+                                <div className="col-span-4 bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center flex flex-col justify-center">
+                                    <div className="text-6xl font-black text-slate-900 mb-2">42</div>
+                                    <div className="text-sm text-slate-400 font-bold tracking-widest mb-6 uppercase">Total Score</div>
+                                    <div className="bg-rose-50 text-rose-600 font-bold py-2 rounded-xl">Grade: C (Poor)</div>
+                                </div>
+                                <div className="col-span-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                                    <div className="space-y-4">
+                                        {['C','A','N','S','L','I','M'].map((char, idx) => (
+                                            <div key={char} className="flex items-center gap-4 p-3 hover:bg-slate-50 rounded-lg transition-colors">
+                                                <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-black">{char}</div>
+                                                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className={`h-full ${idx < 2 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{width: `${idx < 2 ? 85 - (idx*10) : 30 + (idx*5)}%`}}></div>
+                                                </div>
+                                                <span className={`text-xs font-bold w-12 text-right ${idx < 2 ? 'text-emerald-600' : 'text-rose-500'}`}>{idx < 2 ? 'PASS' : 'FAIL'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [currentScreen, setCurrentScreen] = useState('home');
+            const [tradingMode, setTradingMode] = useState('trading');
+
+            const Header = () => (
+                <header className="sticky top-0 z-50 bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6">
+                    <div 
+                        className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => { setCurrentScreen('home'); setTradingMode('trading'); }}
+                    >
+                        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shadow-md shadow-indigo-100">
+                            <Icon name="target" className="text-white w-5 h-5" />
+                        </div>
+                        <span className="text-xl font-black text-slate-900 tracking-tighter">ORION AI</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="hidden md:flex items-center bg-slate-100 px-4 py-2 rounded-full border border-slate-200/50">
+                            <Icon name="search" className="w-4 h-4 text-slate-400 mr-2"/>
+                            <input type="text" placeholder="종목 검색 / 기능 검색" className="bg-transparent text-sm outline-none w-48 text-slate-600"/>
+                        </div>
+                        <button className="p-2 hover:bg-slate-100 rounded-full relative transition-colors">
+                            <Icon name="bell" className="w-5 h-5 text-slate-500"/>
+                            <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border border-white"></span>
+                        </button>
+                        <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center border border-slate-300">
+                            <Icon name="user" className="w-4 h-4 text-slate-500"/>
+                        </div>
+                    </div>
+                </header>
+            );
+
+            const HomeScreen = () => (
+                <div className="max-w-6xl mx-auto px-6 py-12 animate-in">
+                    <div className="text-center mb-16">
+                        <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tight">투자파트너, <span className="text-indigo-600">ORION</span></h1>
+                        <p className="text-lg text-slate-500 font-medium">시장의 가장 뛰어난 파트너, AI 투자대가의 핵심전략</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div onClick={() => setCurrentScreen('menu1')} className="group bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg text-white">
+                                    <Icon name="library" className="w-7 h-7" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">투자 대가 봇 라이브러리</h3>
+                                <p className="text-slate-500 text-sm leading-relaxed mb-6">전설적인 투자자들의 철학을 이식받은 AI 봇을 만나보세요.</p>
+                                <div className="flex items-center text-indigo-600 font-bold text-sm">
+                                    라이브러리 입장 <Icon name="arrow-right" className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onClick={() => setCurrentScreen('menu2')} className="group bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-emerald-300 transition-all cursor-pointer relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 bg-emerald-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg text-white">
+                                    <Icon name="cpu" className="w-7 h-7" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">AI 봇 티칭 머신</h3>
+                                <p className="text-slate-500 text-sm leading-relaxed mb-6">자신만의 매매 기록을 학습시켜 개인 맞춤형 AI를 구축합니다.</p>
+                                <div className="flex items-center text-emerald-600 font-bold text-sm">
+                                    봇 빌더 시작 <Icon name="arrow-right" className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onClick={() => setCurrentScreen('menu3')} className="group bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all cursor-pointer relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 bg-amber-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg text-white">
+                                    <Icon name="search" className="w-7 h-7" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">AI 종목 스크리너</h3>
+                                <p className="text-slate-500 text-sm leading-relaxed mb-6">자연어 질문만으로 조건에 맞는 급등주를 즉시 찾아냅니다.</p>
+                                <div className="flex items-center text-amber-600 font-bold text-sm">
+                                    스크리닝 시작 <Icon name="arrow-right" className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const LibraryScreen = () => (
+                <div className="max-w-7xl mx-auto px-6 py-8 animate-in">
+                    <button onClick={() => setCurrentScreen('home')} className="flex items-center text-slate-400 hover:text-slate-900 mb-6 font-bold text-sm transition-colors">
+                        <Icon name="chevron-left" className="w-4 h-4 mr-1"/> 메인으로
+                    </button>
+                    <div className="text-center mb-12">
+                        <h2 className="text-3xl font-black text-slate-900 mb-2">Expert Library</h2>
+                        <p className="text-slate-500">당신의 투자 성향에 맞는 거장의 AI를 선택하세요.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {[
+                            { name: "William O'Neil", style: "CAN SLIM & Momentum", color: "bg-[#0A2647] text-white", accent: "text-amber-400" },
+                            { name: "Warren Buffett", style: "Value & Long-term", color: "bg-[#1C315E] text-white", accent: "text-blue-200" },
+                            { name: "Jim Simons", style: "Quant & Mathematical", color: "bg-[#2D4263] text-white", accent: "text-emerald-200" }
+                        ].map((bot, i) => (
+                            <div key={i} onClick={() => setCurrentScreen('menu1-trading')} className={`aspect-[3/4] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer hover:scale-[1.02] transition-all shadow-2xl relative overflow-hidden ${bot.color}`}>
+                                <div className="absolute top-0 right-0 p-6 opacity-10"><Icon name="bot" className="w-32 h-32"/></div>
+                                <div>
+                                    <div className="w-12 h-1 bg-white/30 mb-6 rounded-full"></div>
+                                    <h3 className="text-3xl font-black leading-tight mb-2 tracking-tight">{bot.name}</h3>
+                                    <p className={`text-sm font-bold uppercase tracking-widest ${bot.accent}`}>{bot.style}</p>
+                                </div>
+                                <button className="bg-white/10 backdrop-blur-md border border-white/20 text-white py-4 rounded-2xl font-bold hover:bg-white hover:text-slate-900 transition-all shadow-xl">
+                                    AI 봇 가동하기
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+
+            const BotWorkspace = () => (
+                <div className="flex h-[calc(100vh-64px)] bg-slate-50 overflow-hidden">
+                    <aside className="w-20 bg-white border-r border-slate-200 flex flex-col items-center py-6 gap-6 shrink-0">
+                        <div className="w-12 h-12 bg-[#0A2647] rounded-2xl flex items-center justify-center text-white font-black text-xs">WON</div>
+                        <div className="flex-1 w-full flex flex-col items-center gap-6 mt-4">
+                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl"><Icon name="activity" className="w-6 h-6"/></div>
+                            <div className="p-3 text-slate-300"><Icon name="history" className="w-6 h-6"/></div>
+                            <div className="p-3 text-slate-300"><Icon name="message-square" className="w-6 h-6"/></div>
+                            <div className="p-3 text-slate-300"><Icon name="settings" className="w-6 h-6"/></div>
+                        </div>
+                    </aside>
+                    <div className="flex-1 flex flex-col min-w-0">
+                        <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-6 shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div>
+                                    <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                                        William O'Neil Bot <span className="bg-emerald-100 text-emerald-600 text-[10px] px-2 py-0.5 rounded-full font-bold">LIVE</span>
+                                    </h2>
+                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-tighter">CAN SLIM Growth Strategy</p>
+                                </div>
+                            </div>
+                            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
+                                <button onClick={() => setTradingMode('trading')} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${tradingMode === 'trading' ? 'bg-white text-slate-900 shadow-md border border-slate-200' : 'text-slate-400'}`}>
+                                    <Icon name="line-chart" className="w-4 h-4"/> 트레이딩 모드
+                                </button>
+                                <button onClick={() => setTradingMode('analysis')} className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${tradingMode === 'analysis' ? 'bg-white text-indigo-600 shadow-md border border-slate-200' : 'text-slate-400'}`}>
+                                    <Icon name="file-text" className="w-4 h-4"/> 분석 모드
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {tradingMode === 'trading' ? (
+                                <div className="h-full flex flex-col gap-6 animate-in">
+                                    <div className="flex-1 bg-white rounded-[32px] border border-slate-200 shadow-sm flex items-center justify-center relative overflow-hidden group">
+                                        <div className="text-center relative z-10">
+                                            <Icon name="line-chart" className="w-10 h-10 text-slate-300 mx-auto mb-4"/>
+                                            <p className="text-slate-400 font-bold text-lg mb-1">TradingView Chart Container</p>
+                                        </div>
+                                    </div>
+                                    <div className="h-64 grid grid-cols-3 gap-6 shrink-0">
+                                        <div className="col-span-2 bg-white rounded-[32px] border border-slate-200 shadow-sm p-8">
+                                            <div className="flex justify-between items-center mb-6">
+                                                <h4 className="font-bold text-slate-900">Quick Order Panel</h4>
+                                            </div>
+                                            <div className="flex gap-6 h-12">
+                                                <button className="flex-1 bg-rose-50 text-rose-600 py-3 rounded-2xl font-black border border-rose-100">SELL</button>
+                                                <button className="flex-1 bg-emerald-50 text-emerald-600 py-3 rounded-2xl font-black border border-emerald-100">BUY</button>
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-900 rounded-[32px] shadow-xl p-8 text-white">
+                                            <h4 className="font-bold text-slate-400 text-xs mb-4 uppercase tracking-widest">Active Position</h4>
+                                            <div className="text-3xl font-black text-rose-400">-1.42%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-white rounded-[40px] p-10 border border-slate-200 shadow-sm min-h-full">
+                                    <div className="flex items-center justify-between mb-10 pb-8 border-b border-slate-100">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-16 h-16 bg-slate-100 rounded-[24px] flex items-center justify-center border border-slate-200">
+                                                <Icon name="bar-chart-2" className="w-8 h-8 text-slate-700"/>
+                                            </div>
+                                            <div>
+                                                <h2 className="text-3xl font-black text-slate-900 tracking-tight">Apple Inc. (AAPL)</h2>
+                                                <span className="text-rose-500 font-bold text-xs bg-rose-50 px-2 py-0.5 rounded-md">매수 금지 (AVOID)</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-4xl font-black text-slate-900">$255.78</div>
+                                            <div className="text-rose-500 font-black text-lg">-2.27%</div>
+                                        </div>
+                                    </div>
+                                    <AnalysisView />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const TeachingScreen = () => (
+                <div className="max-w-4xl mx-auto px-6 py-12 animate-in">
+                    <button onClick={() => setCurrentScreen('home')} className="flex items-center text-slate-400 hover:text-slate-900 mb-8 font-bold text-sm">
+                        <Icon name="chevron-left" className="w-4 h-4 mr-1"/> 홈으로 돌아가기
+                    </button>
+                    <div className="bg-white rounded-[40px] border border-slate-200 shadow-2xl overflow-hidden">
+                        <div className="p-10 bg-indigo-600 text-white relative">
+                            <h2 className="text-3xl font-black mb-2">AI 티칭 머신</h2>
+                            <p className="text-indigo-100">당신의 직관과 매매 기록을 결합하여 독보적인 투자 AI를 만듭니다.</p>
+                        </div>
+                        <div className="p-12 bg-slate-50 min-h-[450px]">
+                            <div className="bg-white p-12 rounded-[32px] border border-slate-200 text-center shadow-lg">
+                                <Icon name="briefcase" className="w-16 h-16 text-indigo-400 mx-auto mb-6" />
+                                <h3 className="font-black text-2xl text-slate-800 mb-3">증권사 계좌 연동</h3>
+                                <button className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-bold shadow-xl flex items-center gap-2 mx-auto mt-6">
+                                    Open API 연결하기 <Icon name="arrow-right" className="w-4 h-4"/>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const ScreenerScreen = () => (
+                <div className="max-w-6xl mx-auto px-6 py-12 animate-in">
+                    <button onClick={() => setCurrentScreen('home')} className="flex items-center text-slate-400 hover:text-slate-900 mb-8 font-bold text-sm">
+                        <Icon name="chevron-left" className="w-4 h-4 mr-1"/> 홈으로 돌아가기
+                    </button>
+                    <div className="grid grid-cols-12 gap-8 h-[650px]">
+                        <div className="col-span-5 bg-white rounded-[40px] border border-slate-200 shadow-xl p-8 flex flex-col">
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center"><Icon name="message-square" className="w-5 h-5 text-amber-600"/></div>
+                                <h3 className="font-black text-xl text-slate-900">AI Screener</h3>
+                            </div>
+                            <div className="flex-1 mb-6"><div className="bg-slate-100 p-5 rounded-[24px]">안녕하세요! 찾으시는 주도주 조건이 있나요?</div></div>
+                            <div className="relative">
+                                <input type="text" placeholder="검색 조건을 말씀하세요..." className="w-full bg-slate-50 border-2 border-slate-100 rounded-[24px] py-4 px-6 text-sm font-bold"/>
+                            </div>
+                        </div>
+                        <div className="col-span-7 bg-white rounded-[40px] border border-slate-200 p-10">
+                            <h3 className="font-black text-2xl text-slate-900 mb-8">실시간 스캔 결과</h3>
+                            <div className="space-y-4">
+                                {[{t:"TSLA", n:"Tesla Inc.", p:"$242.60", c:"+4.2%"}, {t:"NVDA", n:"NVIDIA", p:"$124.50", c:"+1.8%"}].map((s,i)=>(
+                                    <div key={i} className="flex items-center justify-between p-5 bg-white rounded-[24px] border border-slate-100 shadow-sm">
+                                        <div className="font-black">{s.t}</div>
+                                        <div className="font-black text-emerald-500">{s.c}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
+                    <Header />
+                    <main>
+                        {currentScreen === 'home' && <HomeScreen />}
+                        {currentScreen === 'menu1' && <LibraryScreen />}
+                        {(currentScreen === 'menu1-trading' || currentScreen === 'menu1-analysis') && <BotWorkspace />}
+                        {currentScreen === 'menu2' && <TeachingScreen />}
+                        {currentScreen === 'menu3' && <ScreenerScreen />}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

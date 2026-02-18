@@ -1,0 +1,281 @@
+{
+  "ticker": "AAPL",
+  "timestamp": "2026-02-17_12-28-46",
+  "mode": "fundamental_analysis",
+  "ai_analysis": "## CAN SLIM 기본적 분석 보고서: AAPL\n\n### C — 분기 실적 (Current Quarterly Earnings)\n**O'Neil 원문 규칙**: 현재 분기 EPS는 전년 동기 대비 최소 25-50% 이상 증가해야 하며, 이상적으로는 40-500% 이상 증가해야 합니다. 매출 성장률은 최소 25% 이상으로 EPS 성장을 뒷받침해야 합니다.\n**AAPL 데이터 분석**: 최신 분기 EPS 성장률은 15.9%입니다. 이는 O'Neil의 최소 요구치인 25-50%에 미달합니다. 매출 성장률도 15.7%로, O'Neil이 EPS 성장을 뒷받침하기 위해 요구하는 25%에 미치지 못합니다. 가속화 여부에 대한 명확한 데이터는 없지만, 현재의 성장률만으로는 선두 주자의 기준에 부합하지 않습니다.\n**판정**: **FAIL** — O'Neil의 기준에 따르면 현재 분기 EPS 및 매출 성장률이 현저히 낮습니다.\n\n### A — 연간 실적 (Annual Earnings)\n**O'Neil 원문 규칙**: 지난 3년(이상적으로는 5년) 연속 연간 EPS 성장이 필요하며, 최소 연간 성장률은 25%, 이상적으로는 50-100% 이상입니다. ROE는 최소 17% 이상이어야 하며, 우수한 성장주는 25-50%의 ROE를 보입니다.\n**AAPL 데이터 분석**: 연간 순이익 성장률은 [19.5%, -3.4%, -2.8%]입니다. 이는 지난 3년 연속 성장을 보여주지 못했으며, 특히 두 해 연속 마이너스 성장을 기록한 점은 O'Neil의 기준에 명백히 어긋납니다. 비록 최신 연도 성장률(19.5%)이 있지만, O'Neil의 최소치 25%에는 미달합니다. 그러나 ROE는 152.0%로 매우 뛰어나 O'Neil의 이상적인 범위를 훨씬 초과합니다.\n**판정**: **FAIL** — 뛰어난 ROE에도 불구하고, 지난 3년간의 연간 EPS 성장 일관성 및 최소 성장률 기준을 충족하지 못합니다.\n\n### N — 신촉매 (New Catalyst)\n**O'Neil 원문 규칙**: 위대한 주식 승자의 95% 이상은 혁신적인 신제품/서비스, 경영진 변화, 또는 새로운 산업 환경과 같은 '새로운' 요인에 의해 주도되었습니다. 주가는 적절히 형성된 기지(base)에서 신고가를 경신하며 돌파할 때 매수해야 합니다.\n**AAPL 데이터 분석**: Apple Vision Pro, Apple Intelligence, M4 칩 등 여러 신제품 및 서비스가 최근 12개월 내에 발표되거나 출시되었습니다. 이는 O'Neil이 강조하는 '새로운' 촉매에 해당합니다. 경영진 변화는 없으나, AI 통합과 공간 컴퓨팅이라는 새로운 산업 트렌드에 대한 중요한 전략적 변화를 보여줍니다. 현재 주가는 52주 신고가 대비 -11.4%로, 신고가 돌파 시점은 아니지만, 혁신적인 신제품 요소는 명확합니다.\n**판정**: **PASS** — Apple Vision Pro 및 Apple Intelligence와 같은 중요한 '새로운' 제품 및 전략적 변화는 O'Neil의 'N' 요소에 부합합니다.\n\n### S — 수급 (Supply & Demand)\n**O'Neil 원문 규칙**: 시가총액이 작은 종목이 더 빠르게 움직일 수 있습니다. 최고 경영진의 높은 지분율을 선호하며, 자사주 매입은 긍정적이며 10% 정도는 중요하게 간주됩니다. 낮은 부채-자본 비율이 일반적으로 더 좋습니다.\n**AAPL 데이터 분석**: 시가총액은 3조 7천억 달러가 넘는 초대형주로, O'Neil이 선호하는 빠른 움직임을 위한 소형주 기준에는 해당하지 않습니다. 내부자 소유 지분은 1.7%로, 대형주임을 감안하면 보통 수준입니다. 지난 1년간 발행 주식수가 1.6% 감소하여 자사주 매입이 있었지만, O'Neil이 '중요하다'고 여기는 10%에는 훨씬 못 미칩니다. 부채-자본 비율은 102.6%로, O'Neil이 선호하는 낮은 비율보다 높아서 잠재적 위험을 내포합니다.\n**판정**: **CAUTION** — 초대형주로서의 느린 움직임, 보통 수준의 자사주 매입 비율, 그리고 비교적 높은 부채 비율이 O'Neil의 엄격한 수급 기준에 완전히 부합하지 않습니다.\n\n### L — 리더/래거드 (Leader or Laggard)\n**O'Neil 원문 규칙**: 해당 분야의 #1 기업을 매수해야 합니다. RS Rating은 85 이상이 필수이며, 40, 50, 60대 RS Rating을 가진 주식은 절대 매수해서는 안 됩니다.\n**AAPL 데이터 분석**: Relative Price Strength (RS) Rating은 50/99입니다. O'Neil은 RS Rating이 40, 50, 60대에 있는 주식은 절대 매수하지 말라고 분명히 명시했습니다. 그의 기준인 85 이상에 크게 미달합니다. 최근 10주간 RS 추세도 하락하고 있습니다.\n**판정**: **FAIL** — O'Neil의 RS Rating 기준(85 이상)에 명백히 미달하며, 그가 \"절대 매수하지 말라\"고 경고한 RS 범위에 속합니다.\n\n### I — 기관 투자 (Institutional Sponsorship)\n**O'Neil 원문 규칙**: 최소한 여러 기관 투자자(소형/신생 기업의 경우 최소 20개)가 후원해야 합니다. 양보다 질이 중요하며, 보유 기관 수의 증가를 주시해야 합니다. 과도하게 소유된 주식은 주의해야 합니다.\n**AAPL 데이터 분석**: 기관 소유 비율은 65.5%로 높지만, **기관 보유자 수(Number of Institutional Holders)가 10개**로 명시되어 있습니다. 이는 O'Neil이 소형/신생 기업에게 요구하는 최소 20개 기관에도 훨씬 못 미치는 수치이며, AAPL과 같은 초대형 기업에게는 매우 이례적으로 낮은 숫자입니다. 비록 Vanguard, Blackrock, Berkshire Hathaway와 같은 최고 품질의 기관들이 포함되어 있지만, 보유 기관 수 자체가 절대적인 최소 기준에 미달합니다.\n**판정**: **FAIL** — 명시된 기관 보유자 수가 O'Neil의 최소 기준에 현저히 미달하여 충분한 기관 후원을 받고 있다고 보기 어렵습니다.\n\n### M — 시장 방향 (Market Direction)\n**O'Neil 원문 규칙**: 시장 방향은 전체 투자 게임의 50%를 차지합니다. 4-5주 이내에 3-5개의 '분배일(distribution days)'이 나타나면 시장 정점 신호로 간주합니다. 분배일은 지수가 전일 대비 높은 거래량으로 0.2% 이상 하락 마감하는 날입니다.\n**AAPL 데이터 분석**: S&P 500 지수는 5주 이내에 5개의 분배일이 발생하여 \"횡보(SIDEWAYS)\" 추세이지만 시장 정점 신호에 해당합니다. NASDAQ 지수는 5주 이내에 6개의 분배일이 발생했으며 \"하락 추세(DOWNTREND)\"에 있습니다. O'Neil은 5개 이상의 분배일이 시장 정점 신호라고 경고했습니다.\n**판정**: **FAIL** — 주요 시장 지수에서 여러 개의 분배일이 발생하고 있으며, NASDAQ은 하락 추세에 있어 O'Neil의 시장 방향 기준에 따르면 현재 시장 환경은 매우 불리합니다.\n\n---\n\n### 종합 CAN SLIM 평가 요약\n\n*   **PASS**: 1개 (N)\n*   **CAUTION**: 1개 (S)\n*   **FAIL**: 5개 (C, A, L, I, M)\n\n**가장 강한 요소**: 신제품, 신기술, 새로운 산업 트렌드(N)\n**가장 약한 요소**: 분기/연간 실적(C, A), 상대적 가격 강도(L), 기관 투자(I), 시장 방향(M)\n\n### 주요 리스크 요인\n\n1.  **성장성 부족 (C & A)**: 최신 분기 EPS 성장률과 매출 성장률이 O'Neil의 최소 기준에 현저히 미달하며, 지난 3년간 연간 EPS 성장이 일관되지 않아 진정한 성장주로서의 요건을 충족하지 못합니다.\n2.  **상대적 약세 (L)**: RS Rating이 50으로, O'Neil이 \"절대 매수해서는 안 된다\"고 강조하는 범위에 속합니다. 이는 시장 선두 주자가 아님을 명확히 보여주는 신호입니다.\n3.  **기관 후원 부족 (I)**: 명시된 기관 보유자 수가 10개에 불과하여 O'Neil의 최소 기준인 20개에 훨씬 못 미치며, 이는 광범위한 기관의 지지 부족을 의미합니다.\n4.  **불리한 시장 환경 (M)**: 주요 시장 지수에서 여러 분배일이 감지되어 시장 정점 또는 하락 추세의 가능성을 시사합니다. 이러한 환경에서는 아무리 좋은 종목이라도 큰 손실을 입을 수 있습니다.\n\n### O'Neil의 종합 의견\n\n자, AAPL에 대한 데이터를 보십시오. 우리의 위대한 주식 승자 연구가 1880년대부터 현재까지 보여준 바에 따르면, 이 종목은 현재 CAN SLIM 시스템의 핵심 기준을 심각하게 충족하지 못하고 있습니다.\n\n가장 먼저 눈에 띄는 것은 **분기 및 연간 실적**입니다. 최신 분기 EPS 성장률 15.9%로는 턱없이 부족합니다. 진짜 승자들은 대규모 상승을 시작하기 전, 최소 40%에서 수백 퍼센트에 달하는 폭발적인 분기 실적 증가를 보여줍니다. 연간 실적 또한 지난 3년 중 두 해가 마이너스 성장을 기록했습니다. 우리는 꾸준하고 가속화되는 연간 성장을 원합니다. 높은 ROE는 훌륭하지만, 일관성 없는 이익 성장을 가릴 수는 없습니다.\n\n더욱 심각한 것은 **상대적 가격 강도(RS Rating)**입니다. RS Rating이 50이라구요? 제가 수없이 강조했습니다. RS Rating이 40대, 50대, 60대에 있는 종목은 **절대 사지 마십시오!** 시장에서 가장 약한 말들을 사는 것과 같습니다. 시장은 늘 옳습니다. 이 종목은 시장의 리더가 아닙니다. 시장 조정 시 가장 적게 하락하고, 다음 상승장에서 선두를 달리는 종목들을 찾아야 합니다.\n\n**기관 투자** 측면에서도, 보유 기관 수가 10개에 불과하다는 데이터는 큰 문제입니다. 아무리 좋은 기관이라도 숫자가 너무 적습니다. 진정한 리더들은 수십에서 수백 개의 최고 성과를 내는 기관들의 후원을 받습니다.\n\n그리고 **시장 방향**을 보십시오. S&P 500과 NASDAQ 모두 5-6개의 분배일이 발생했습니다. 이는 시장이 압력을 받고 있거나 잠재적인 정점에 도달했음을 의미하는 명확한 경고 신호입니다. 시장이 하락 추세로 전환하면, 아무리 좋은 종목이라도 3개 중 2개는 함께 떨어집니다. 시장의 큰 흐름을 거슬러서는 안 됩니다.\n\n물론 Apple Vision Pro나 Apple Intelligence 같은 '새로운' 촉매는 긍정적입니다. 하지만 하나의 긍정적인 요소만으로 CAN SLIM의 다른 핵심 요소들이 무너진 것을 간과할 수는 없습니다.\n\n개인적인 의견이나 희망은 시장에서 통하지 않습니다. 오직 명확한 규칙과 데이터를 따를 때만 성공할 수 있습니다. 이 종목은 현재 CAN SLIM 원칙에 따라 매력적인 투자 기회로 보이지 않습니다. 규율을 지키고, 7-8% 손절매 규칙을 항상 기억하십시오.",
+  "fundamental_data": {
+    "C": {
+      "quarterly_eps_growth_yoy": [
+        15.9
+      ],
+      "quarterly_revenue": [
+        {
+          "period": "2025-12",
+          "revenue": 143756000000.0
+        },
+        {
+          "period": "2025-09",
+          "revenue": 102466000000.0
+        },
+        {
+          "period": "2025-06",
+          "revenue": 94036000000.0
+        },
+        {
+          "period": "2025-03",
+          "revenue": 95359000000.0
+        },
+        {
+          "period": "2024-12",
+          "revenue": 124300000000.0
+        }
+      ],
+      "quarterly_net_income": [
+        {
+          "period": "2025-12",
+          "net_income": 42097000000.0
+        },
+        {
+          "period": "2025-09",
+          "net_income": 27466000000.0
+        },
+        {
+          "period": "2025-06",
+          "net_income": 23434000000.0
+        },
+        {
+          "period": "2025-03",
+          "net_income": 24780000000.0
+        },
+        {
+          "period": "2024-12",
+          "net_income": 36330000000.0
+        }
+      ],
+      "revenue_growth": 15.7,
+      "eps_acceleration": null,
+      "data_note": ""
+    },
+    "A": {
+      "annual_net_income": [
+        {
+          "year": "2025",
+          "net_income": 112010000000.0
+        },
+        {
+          "year": "2024",
+          "net_income": 93736000000.0
+        },
+        {
+          "year": "2023",
+          "net_income": 96995000000.0
+        },
+        {
+          "year": "2022",
+          "net_income": 99803000000.0
+        }
+      ],
+      "annual_growth_rates": [
+        19.5,
+        -3.4,
+        -2.8
+      ],
+      "consecutive_growth_years": 1,
+      "roe": 152.0,
+      "pe_ratio": 32.4,
+      "forward_pe": 27.5,
+      "profit_margins": 27.0,
+      "data_note": ""
+    },
+    "N": {
+      "fifty_two_week_high": 288.62,
+      "fifty_two_week_low": 169.21,
+      "current_price": 255.78,
+      "pct_from_52w_high": -11.4,
+      "fifty_two_week_return": 51.2,
+      "near_52w_high": false,
+      "ai_catalyst": {
+        "new_products": [
+          "Apple Vision Pro (announced June 2023, launched Feb 2024)",
+          "Apple Intelligence (announced June 2024, as a new AI platform/features)",
+          "M4 chip (announced May 2024, powering new iPad Pro, highlighting AI capabilities)",
+          "New iPad Air (M2) and iPad Pro (M4) (launched May 2024)",
+          "iPhone 15 series (launched Sept 2023, with USB-C and Action Button)",
+          "M3 family of chips (announced Oct 2023, powering new Macs)"
+        ],
+        "new_management": [
+          "No new CEO or C-suite/key SVP executive appointments in the past 12 months, indicating leadership stability."
+        ],
+        "new_industry_trends": [
+          "Accelerated demand and integration of Artificial Intelligence (AI) across consumer devices, particularly on-device AI.",
+          "Emergence of Spatial Computing/Mixed Reality as a nascent but significant new computing paradigm.",
+          "Continued strength and resilience of the premium segment in the consumer electronics market."
+        ],
+        "catalyst_summary": "The launch of the Apple Vision Pro introduced a completely new product category in spatial computing within the past 12 months. Additionally, the recent announcement of 'Apple Intelligence' signals a major strategic pivot towards deep AI integration across its ecosystem, poised to refresh the product lineup. While Vision Pro's immediate revenue impact is modest, these represent significant new ventures and potential future growth drivers.",
+        "has_meaningful_catalyst": true
+      },
+      "data_note": ""
+    },
+    "S": {
+      "market_cap": 3759435415552,
+      "market_cap_label": "Large Cap",
+      "shares_outstanding": 14681140000,
+      "float_shares": 14656182062,
+      "insider_pct": 1.7,
+      "debt_to_equity": 102.6,
+      "buyback_detected": false,
+      "share_change_pct": -1.6,
+      "data_note": ""
+    },
+    "L": {
+      "sector": "Technology",
+      "industry": "Consumer Electronics",
+      "rs_rating": 50,
+      "rs_trend": "FALLING",
+      "rs_new_high": false,
+      "rs_vs_benchmark": {
+        "13w": {
+          "stock_return": 2.2,
+          "benchmark_return": 2.9,
+          "outperformance": -0.7
+        },
+        "26w": {
+          "stock_return": 20.3,
+          "benchmark_return": 7.5,
+          "outperformance": 12.9
+        },
+        "52w": {
+          "stock_return": 14.2,
+          "benchmark_return": 13.4,
+          "outperformance": 0.8
+        }
+      },
+      "benchmark": "S&P 500",
+      "data_note": ""
+    },
+    "I": {
+      "inst_holders_pct": 65.5,
+      "inst_holders_count": 10,
+      "top_holders": [
+        {
+          "name": "Vanguard Group Inc",
+          "shares": 1426283914,
+          "value": 364814897781
+        },
+        {
+          "name": "Blackrock Inc.",
+          "shares": 1154665731,
+          "value": 295340399265
+        },
+        {
+          "name": "State Street Corporation",
+          "shares": 604056505,
+          "value": 154505572111
+        },
+        {
+          "name": "Geode Capital Management, LLC",
+          "shares": 358032517,
+          "value": 91577556761
+        },
+        {
+          "name": "FMR, LLC",
+          "shares": 303254081,
+          "value": 77566328467
+        },
+        {
+          "name": "Berkshire Hathaway, Inc",
+          "shares": 238212764,
+          "value": 60930060485
+        },
+        {
+          "name": "Morgan Stanley",
+          "shares": 230483035,
+          "value": 58952950410
+        },
+        {
+          "name": "JPMORGAN CHASE & CO",
+          "shares": 225419111,
+          "value": 57657699936
+        },
+        {
+          "name": "Price (T.Rowe) Associates Inc",
+          "shares": 212755053,
+          "value": 54418487196
+        },
+        {
+          "name": "NORGES BANK",
+          "shares": 192255086,
+          "value": 49175005662
+        }
+      ],
+      "data_note": ""
+    },
+    "M": {
+      "sp500": {
+        "name": "S&P 500",
+        "current_price": 6836.17,
+        "vs_50dma": -0.8,
+        "vs_200dma": 5.1,
+        "trend": "SIDEWAYS",
+        "distribution_days_5wk": 5,
+        "recent_distribution": [
+          {
+            "date": "2026-01-14",
+            "change": -0.53
+          },
+          {
+            "date": "2026-01-20",
+            "change": -2.06
+          },
+          {
+            "date": "2026-02-03",
+            "change": -0.84
+          },
+          {
+            "date": "2026-02-04",
+            "change": -0.51
+          },
+          {
+            "date": "2026-02-12",
+            "change": -1.57
+          }
+        ]
+      },
+      "nasdaq": {
+        "name": "NASDAQ",
+        "current_price": 22546.67,
+        "vs_50dma": -3.5,
+        "vs_200dma": 3.5,
+        "trend": "DOWNTREND",
+        "distribution_days_5wk": 6,
+        "recent_distribution": [
+          {
+            "date": "2026-01-14",
+            "change": -1.0
+          },
+          {
+            "date": "2026-01-29",
+            "change": -0.72
+          },
+          {
+            "date": "2026-01-30",
+            "change": -0.94
+          },
+          {
+            "date": "2026-02-03",
+            "change": -1.43
+          },
+          {
+            "date": "2026-02-04",
+            "change": -1.51
+          },
+          {
+            "date": "2026-02-10",
+            "change": -0.59
+          }
+        ]
+      },
+      "data_note": ""
+    }
+  }
+}
