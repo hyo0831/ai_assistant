@@ -72,11 +72,11 @@ def convert_numpy(obj):
 # ── FastAPI 앱 설정 ─────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    api_key = os.environ.get("GEMINI_API_KEY")
+    api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("[WARNING] GEMINI_API_KEY 환경변수가 설정되지 않았습니다.")
+        print("[WARNING] OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
     else:
-        print(f"[OK] GEMINI_API_KEY 확인됨 (길이: {len(api_key)})")
+        print(f"[OK] OPENAI_API_KEY 확인됨 (길이: {len(api_key)})")
     print("[OK] O'Neil AI 통합 서버 시작")
     print(f"  - 프로젝트 루트: {PROJECT_ROOT}")
     print(f"  - 트레이딩 모듈: {TRADING_DIR}")
@@ -219,8 +219,8 @@ async def trading_analyze(request: TradingRequest):
     if interval not in ("1wk", "1d"):
         raise HTTPException(status_code=400, detail="interval은 '1wk' 또는 '1d'만 가능합니다.")
 
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY가 설정되지 않았습니다.")
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY가 설정되지 않았습니다.")
 
     original_cwd = os.getcwd()
     os.chdir(str(TRADING_DIR))
@@ -309,8 +309,8 @@ async def analysis_analyze(request: AnalysisRequest):
     if not ticker:
         raise HTTPException(status_code=400, detail="ticker는 필수 항목입니다.")
 
-    if not os.environ.get("GEMINI_API_KEY"):
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY가 설정되지 않았습니다.")
+    if not os.environ.get("OPENAI_API_KEY"):
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY가 설정되지 않았습니다.")
 
     original_cwd = os.getcwd()
     os.chdir(str(PROJECT_ROOT))

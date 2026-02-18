@@ -1,10 +1,11 @@
 import re
-from google import genai
-from google.genai import types
+import base64
+from openai import OpenAI
 from PIL import Image
 import json
+from io import BytesIO
 
-from core.config import GEMINI_API_KEY, LANGUAGE
+from core.config import OPENAI_API_KEY, LANGUAGE
 from core.system_prompt import WILLIAM_ONEIL_ENHANCED_PERSONA
 
 
@@ -48,7 +49,7 @@ def analyze_chart_with_gemini(image_path: str, ticker: str, df=None,
                                feedback_manager=None,
                                interval: str = "1wk") -> str:
     """
-    Gemini를 사용하여 차트 분석
+    OpenAI를 사용하여 차트 분석
 
     Args:
         image_path: 차트 이미지 경로
@@ -60,10 +61,13 @@ def analyze_chart_with_gemini(image_path: str, ticker: str, df=None,
     Returns:
         AI 분석 결과 텍스트
     """
-    print(f"[*] Analyzing chart with Gemini (William O'Neil persona)...")
+    print(f"[*] Analyzing chart with OpenAI (William O'Neil persona)...")
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    image = Image.open(image_path)
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    # 이미지를 base64로 인코딩
+    with open(image_path, 'rb') as f:
+        image_data = base64.b64encode(f.read()).decode('utf-8')
 
     data_summary = ""
     if df is not None and not df.empty:
@@ -160,16 +164,32 @@ PART 2: Detailed Analysis
 Be specific, use actual price levels visible on the chart, and give your honest professional opinion.
 """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=[analysis_prompt, image],
-        config=types.GenerateContentConfig(
-            system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA,
-        )
+    response = client.chat.completions.create(
+        model='gpt-4o-vision',
+        messages=[
+            {
+                "role": "system",
+                "content": WILLIAM_ONEIL_ENHANCED_PERSONA
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": analysis_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image_data}"
+                        }
+                    }
+                ]
+            }
+        ],
+        temperature=0.7,
+        max_tokens=3000
     )
 
     print("[OK] Analysis complete!")
-    return _remove_emojis(response.text)
+    return _remove_emojis(response.choices[0].message.content)
 
 
 def parse_pattern_data(analysis_text: str) -> dict:
@@ -221,8 +241,11 @@ def analyze_chart_v2(image_path: str, ticker: str, df,
     """
     print(f"[*] V2: Analyzing with code-detected patterns + AI interpretation...")
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    image = Image.open(image_path)
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    # 이미지를 base64로 인코딩
+    with open(image_path, 'rb') as f:
+        image_data = base64.b64encode(f.read()).decode('utf-8')
 
     data_summary = ""
     if df is not None and not df.empty:
@@ -325,13 +348,29 @@ Be specific with price levels and percentages. Give your honest professional opi
 Integrate BOTH technical chart analysis and ALL CAN SLIM fundamental factors in your final verdict.
 """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=[analysis_prompt, image],
-        config=types.GenerateContentConfig(
-            system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA,
-        )
+    response = client.chat.completions.create(
+        model='gpt-4o-vision',
+        messages=[
+            {
+                "role": "system",
+                "content": WILLIAM_ONEIL_ENHANCED_PERSONA
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": analysis_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image_data}"
+                        }
+                    }
+                ]
+            }
+        ],
+        temperature=0.7,
+        max_tokens=3500
     )
 
     print("[OK] V2 Analysis complete!")
-    return _remove_emojis(response.text)
+    return _remove_emojis(response.choices[0].message.content)

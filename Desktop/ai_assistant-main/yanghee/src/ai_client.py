@@ -1,14 +1,13 @@
 """
-Gemini AI 클라이언트 — 텍스트 전용 (이미지 없음)
+OpenAI AI 클라이언트 — 텍스트 전용 (이미지 없음)
 순수 펀더멘털 분석용
 """
 
 import re
 import time
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
-from src.config import GEMINI_API_KEY, LANGUAGE
+from src.config import OPENAI_API_KEY, LANGUAGE
 from src.system_prompt import WILLIAM_ONEIL_FUNDAMENTAL_PERSONA
 
 
@@ -49,7 +48,7 @@ def _remove_emojis(text: str) -> str:
 
 def analyze_fundamentals_with_gemini(ticker: str, prompt_text: str) -> str:
     """
-    텍스트 전용 Gemini 호출 — 순수 펀더멘털 분석
+    텍스트 전용 OpenAI 호출 — 순수 펀더멘털 분석
 
     Args:
         ticker: 종목 코드
@@ -58,9 +57,9 @@ def analyze_fundamentals_with_gemini(ticker: str, prompt_text: str) -> str:
     Returns:
         AI 분석 결과 텍스트
     """
-    print(f"[*] Gemini AI 펀더멘털 분석 중...")
+    print(f"[*] OpenAI GPT 펀더멘털 분석 중...")
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     lang_instruction = _get_language_instruction()
 
@@ -79,25 +78,27 @@ def analyze_fundamentals_with_gemini(ticker: str, prompt_text: str) -> str:
     max_retries = 2
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=user_message,
-                config=types.GenerateContentConfig(
-                    system_instruction=WILLIAM_ONEIL_FUNDAMENTAL_PERSONA,
-                )
+            response = client.chat.completions.create(
+                model='gpt-4o',
+                messages=[
+                    {"role": "system", "content": WILLIAM_ONEIL_FUNDAMENTAL_PERSONA},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=0.7,
+                max_tokens=2000
             )
 
-            if response.text:
+            if response.choices and response.choices[0].message.content:
                 print("[OK] 펀더멘털 분석 완료!")
-                return _remove_emojis(response.text)
+                return _remove_emojis(response.choices[0].message.content)
             else:
-                raise ValueError("Gemini 응답이 비어있습니다.")
+                raise ValueError("OpenAI 응답이 비어있습니다.")
 
         except Exception as e:
             if attempt < max_retries - 1:
-                print(f"[WARN] Gemini API 오류, 재시도 중... ({e})")
+                print(f"[WARN] OpenAI API 오류, 재시도 중... ({e})")
                 time.sleep(3)
             else:
-                error_msg = f"[ERROR] Gemini AI 분석 실패: {e}"
+                error_msg = f"[ERROR] OpenAI AI 분석 실패: {e}"
                 print(error_msg)
                 return f"AI 분석을 완료하지 못했습니다. 오류: {e}\n수집된 데이터는 저장됩니다."
