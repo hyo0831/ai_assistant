@@ -471,38 +471,88 @@
 
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-        // ── 커뮤니티 투표 ────────────────────────────
-        const defaultPolls = [
-            { ticker: 'NVDA', name: 'NVIDIA Corp', analyst: '윌리엄 오닐 AI', verdict: 'BUY NOW', date: '2026-02-17', bull: 142, neutral: 38, bear: 21 },
-            { ticker: 'AAPL', name: 'Apple Inc', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-16', bull: 89, neutral: 67, bear: 45 },
-            { ticker: '005930.KS', name: '삼성전자', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-15', bull: 76, neutral: 52, bear: 31 },
-            { ticker: 'TSLA', name: 'Tesla Inc', analyst: '윌리엄 오닐 AI', verdict: 'AVOID', date: '2026-02-14', bull: 55, neutral: 30, bear: 98 },
-            { ticker: 'MSFT', name: 'Microsoft Corp', analyst: '윌리엄 오닐 AI', verdict: 'BUY NOW', date: '2026-02-13', bull: 128, neutral: 41, bear: 18 },
-            { ticker: 'AMZN', name: 'Amazon.com Inc', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-12', bull: 95, neutral: 58, bear: 34 },
+        // ── 커뮤니티 투표 (서버 API 기반) ─────────────
+        // 브라우저 세션 ID (동일 브라우저에서 중복 투표 방지)
+        function getSessionId() {
+            let sid = localStorage.getItem('orion_session_id');
+            if (!sid) { sid = 'u_' + Math.random().toString(36).substring(2, 12); localStorage.setItem('orion_session_id', sid); }
+            return sid;
+        }
+        const SESSION_ID = getSessionId();
+
+        // 초기 시드 데이터 (서버에 없으면 자동 등록)
+        const defaultSeedPolls = [
+            { ticker: 'NVDA', name: 'NVIDIA Corp', analyst: '윌리엄 오닐 AI', verdict: 'BUY NOW', date: '2026-02-17', bullish: 142, neutral: 38, bearish: 21 },
+            { ticker: 'AAPL', name: 'Apple Inc', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-16', bullish: 89, neutral: 67, bearish: 45 },
+            { ticker: '005930.KS', name: '삼성전자', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-15', bullish: 76, neutral: 52, bearish: 31 },
+            { ticker: 'TSLA', name: 'Tesla Inc', analyst: '윌리엄 오닐 AI', verdict: 'AVOID', date: '2026-02-14', bullish: 55, neutral: 30, bearish: 98 },
+            { ticker: 'MSFT', name: 'Microsoft Corp', analyst: '윌리엄 오닐 AI', verdict: 'BUY NOW', date: '2026-02-13', bullish: 128, neutral: 41, bearish: 18 },
+            { ticker: 'AMZN', name: 'Amazon.com Inc', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-12', bullish: 95, neutral: 58, bearish: 34 },
         ];
 
-        function getPolls() { const s = localStorage.getItem('orion_polls'); return s ? JSON.parse(s) : defaultPolls; }
-        function savePolls(p) { localStorage.setItem('orion_polls', JSON.stringify(p)); }
-        function getUserVotes() { const s = localStorage.getItem('orion_user_votes'); return s ? JSON.parse(s) : {}; }
-        function saveUserVotes(v) { localStorage.setItem('orion_user_votes', JSON.stringify(v)); }
+        let _cachedPolls = {};
+        let _cachedUserVotes = {};
 
-        function castVote(ticker, voteType) {
-            const polls = getPolls();
-            const userVotes = getUserVotes();
-            const prev = userVotes[ticker];
-            const poll = polls.find(p => p.ticker === ticker);
-            if (!poll) return;
-            if (prev) poll[prev] = Math.max(0, poll[prev] - 1);
-            if (prev === voteType) { delete userVotes[ticker]; }
-            else { poll[voteType] = (poll[voteType] || 0) + 1; userVotes[ticker] = voteType; }
-            savePolls(polls);
-            saveUserVotes(userVotes);
-            renderCommunity();
+        async function seedPollsIfNeeded() {
+            try {
+                await fetch('/api/community/seed', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ items: defaultSeedPolls })
+                });
+            } catch(e) { console.warn('Seed failed:', e); }
         }
 
-        function renderCommunity() {
-            const polls = getPolls();
-            const userVotes = getUserVotes();
+        async function fetchPolls() {
+            try {
+                const [pollsRes, votesRes] = await Promise.all([
+                    fetch('/api/community/polls'),
+                    fetch(`/api/community/user_votes?session_id=${SESSION_ID}`)
+                ]);
+                const pollsData = await pollsRes.json();
+                const votesData = await votesRes.json();
+                _cachedPolls = pollsData.polls || {};
+                _cachedUserVotes = votesData.votes || {};
+            } catch(e) {
+                console.warn('Fetch polls failed:', e);
+            }
+        }
+
+        async function castVote(ticker, voteType) {
+            try {
+                const res = await fetch('/api/community/vote', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ticker, vote_type: voteType, session_id: SESSION_ID })
+                });
+                const data = await res.json();
+                _cachedPolls = data.polls || _cachedPolls;
+                _cachedUserVotes[ticker] = data.user_vote || null;
+                if (!data.user_vote) delete _cachedUserVotes[ticker];
+                renderCommunityUI();
+            } catch(e) { console.error('Vote failed:', e); }
+        }
+
+        async function renderCommunity() {
+            // 로딩 표시
+            document.getElementById('content').innerHTML = `
+                <div class="max-w-5xl mx-auto text-center py-20">
+                    <div class="animate-spin w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full mx-auto mb-4"></div>
+                    <p class="text-slate-400">투표 데이터 불러오는 중...</p>
+                </div>`;
+            await seedPollsIfNeeded();
+            await fetchPolls();
+            renderCommunityUI();
+        }
+
+        function renderCommunityUI() {
+            const polls = _cachedPolls;
+            const userVotes = _cachedUserVotes;
+
+            // 종목 정렬 (투표 합산 내림차순)
+            const sortedTickers = Object.keys(polls).sort((a, b) => {
+                const ta = (polls[a].bullish||0) + (polls[a].neutral||0) + (polls[a].bearish||0);
+                const tb = (polls[b].bullish||0) + (polls[b].neutral||0) + (polls[b].bearish||0);
+                return tb - ta;
+            });
 
             document.getElementById('content').innerHTML = `
                 <div class="max-w-5xl mx-auto">
@@ -511,36 +561,39 @@
                         <p class="text-slate-400">투자 대가 AI가 분석한 종목에 대한 커뮤니티의 의견을 확인하세요.</p>
                     </div>
                     <div class="space-y-4">
-                        ${polls.map(poll => {
-                            const total = poll.bull + poll.neutral + poll.bear;
-                            const bullPct = total > 0 ? Math.round(poll.bull / total * 100) : 0;
-                            const neutralPct = total > 0 ? Math.round(poll.neutral / total * 100) : 0;
+                        ${sortedTickers.map(ticker => {
+                            const poll = polls[ticker];
+                            const bull = poll.bullish || 0, neutral = poll.neutral || 0, bear = poll.bearish || 0;
+                            const total = bull + neutral + bear;
+                            const bullPct = total > 0 ? Math.round(bull / total * 100) : 0;
+                            const neutralPct = total > 0 ? Math.round(neutral / total * 100) : 0;
                             const bearPct = total > 0 ? 100 - bullPct - neutralPct : 0;
-                            const myVote = userVotes[poll.ticker] || null;
-                            const vc = poll.verdict === 'BUY NOW' ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : poll.verdict === 'AVOID' ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-amber-600 bg-amber-50 border-amber-200';
+                            const myVote = userVotes[ticker] || null;
+                            const verdict = poll.verdict || '';
+                            const vc = verdict.includes('BUY') ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : verdict.includes('AVOID') ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-amber-600 bg-amber-50 border-amber-200';
                             return `
                             <div class="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md transition-shadow">
                                 <div class="flex flex-col md:flex-row md:items-center gap-4">
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-3 mb-2">
-                                            <span class="text-lg font-black text-slate-900">${poll.ticker}</span>
-                                            <span class="text-sm text-slate-400">${poll.name}</span>
-                                            <span class="text-xs px-2 py-0.5 rounded-full border font-bold ${vc}">${poll.verdict}</span>
+                                            <span class="text-lg font-black text-slate-900">${ticker}</span>
+                                            <span class="text-sm text-slate-400">${poll.name || ''}</span>
+                                            ${verdict ? `<span class="text-xs px-2 py-0.5 rounded-full border font-bold ${vc}">${verdict}</span>` : ''}
                                         </div>
                                         <div class="flex items-center gap-2 text-xs text-slate-400">
                                             <i data-lucide="bot" class="w-3 h-3"></i>
-                                            <span>${poll.analyst}</span><span>|</span><span>${poll.date}</span><span>|</span><span>총 ${total}표</span>
+                                            <span>${poll.analyst || 'AI'}</span><span>|</span><span>${poll.date || ''}</span><span>|</span><span>총 ${total}표</span>
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">
-                                        <button onclick="castVote('${poll.ticker}','bull')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'bull' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'}">
-                                            <i data-lucide="trending-up" class="w-4 h-4"></i> 강세 <span class="font-black">${poll.bull}</span>
+                                        <button onclick="castVote('${ticker}','bullish')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'bullish' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'}">
+                                            <i data-lucide="trending-up" class="w-4 h-4"></i> 강세 <span class="font-black">${bull}</span>
                                         </button>
-                                        <button onclick="castVote('${poll.ticker}','neutral')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'neutral' ? 'bg-slate-600 text-white shadow-md shadow-slate-300' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200'}">
-                                            <i data-lucide="minus" class="w-4 h-4"></i> 중립 <span class="font-black">${poll.neutral}</span>
+                                        <button onclick="castVote('${ticker}','neutral')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'neutral' ? 'bg-slate-600 text-white shadow-md shadow-slate-300' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200'}">
+                                            <i data-lucide="minus" class="w-4 h-4"></i> 중립 <span class="font-black">${neutral}</span>
                                         </button>
-                                        <button onclick="castVote('${poll.ticker}','bear')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'bear' ? 'bg-rose-500 text-white shadow-md shadow-rose-200' : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200'}">
-                                            <i data-lucide="trending-down" class="w-4 h-4"></i> 약세 <span class="font-black">${poll.bear}</span>
+                                        <button onclick="castVote('${ticker}','bearish')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'bearish' ? 'bg-rose-500 text-white shadow-md shadow-rose-200' : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200'}">
+                                            <i data-lucide="trending-down" class="w-4 h-4"></i> 약세 <span class="font-black">${bear}</span>
                                         </button>
                                     </div>
                                 </div>
@@ -559,7 +612,7 @@
                     </div>
                     <div class="mt-8 bg-indigo-50 rounded-2xl p-6 border border-indigo-100 text-center">
                         <p class="text-sm text-indigo-600 font-bold mb-1">AI가 분석한 종목에 대한 여러분의 의견을 투표해 주세요!</p>
-                        <p class="text-xs text-indigo-400">투표는 로컬에 저장되며, 같은 버튼을 다시 누르면 투표가 취소됩니다.</p>
+                        <p class="text-xs text-indigo-400">투표는 서버에 실시간 저장되며, 같은 버튼을 다시 누르면 투표가 취소됩니다.</p>
                     </div>
                 </div>
             `;

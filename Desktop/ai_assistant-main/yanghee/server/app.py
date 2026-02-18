@@ -17,7 +17,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from typing import Optional
 from dotenv import load_dotenv
+import threading
+import json as json_mod
 
 # 프로젝트 루트 = yanghee/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -413,6 +416,134 @@ def _build_summary(data: dict, currency: str) -> dict:
     summary['M'] = m_summary
 
     return summary
+
+
+# ── 커뮤니티 투표 시스템 (서버 메모리 기반) ───────────
+_polls_lock = threading.Lock()
+_polls_data: dict = {}       # { "AAPL": {"bullish": 0, "neutral": 0, "bearish": 0} }
+_user_votes: dict = {}       # { "session_id:ticker": "bullish" }
+
+POLLS_FILE = PROJECT_ROOT / "polls_data.json"
+
+def _load_polls():
+    global _polls_data, _user_votes
+    if POLLS_FILE.exists():
+        try:
+            with open(POLLS_FILE, "r") as f:
+                saved = json_mod.load(f)
+                _polls_data = saved.get("polls", {})
+                _user_votes = saved.get("votes", {})
+        except Exception:
+            pass
+
+def _save_polls():
+    try:
+        with open(POLLS_FILE, "w") as f:
+            json_mod.dump({"polls": _polls_data, "votes": _user_votes}, f)
+    except Exception:
+        pass
+
+_load_polls()
+
+
+class VoteRequest(BaseModel):
+    ticker: str
+    vote_type: str = Field(..., description="bullish, neutral, bearish")
+    session_id: str = Field(default="anonymous", description="브라우저 세션 ID")
+
+
+@app.get("/api/community/polls")
+async def get_polls():
+    """모든 투표 현황 조회"""
+    with _polls_lock:
+        return {"polls": _polls_data}
+
+
+@app.post("/api/community/vote")
+async def cast_vote(req: VoteRequest):
+    """투표 등록/변경/취소"""
+    ticker = req.ticker.strip().upper()
+    vote_type = req.vote_type.strip().lower()
+    if vote_type not in ("bullish", "neutral", "bearish"):
+        raise HTTPException(status_code=400, detail="vote_type must be bullish, neutral, or bearish")
+
+    vote_key = f"{req.session_id}:{ticker}"
+
+    with _polls_lock:
+        if ticker not in _polls_data:
+            _polls_data[ticker] = {"bullish": 0, "neutral": 0, "bearish": 0}
+
+        poll = _polls_data[ticker]
+        prev_vote = _user_votes.get(vote_key)
+
+        # 이전 투표가 있으면 제거
+        if prev_vote and prev_vote in poll:
+            poll[prev_vote] = max(0, poll[prev_vote] - 1)
+
+        if prev_vote == vote_type:
+            # 같은 버튼 다시 누르면 취소
+            del _user_votes[vote_key]
+        else:
+            poll[vote_type] = poll.get(vote_type, 0) + 1
+            _user_votes[vote_key] = vote_type
+
+        _save_polls()
+        return {"polls": _polls_data, "user_vote": _user_votes.get(vote_key)}
+
+
+@app.post("/api/community/add_ticker")
+async def add_community_ticker(req: dict):
+    """분석 완료된 종목을 커뮤니티에 자동 등록"""
+    ticker = req.get("ticker", "").strip().upper()
+    name = req.get("name", "")
+    analyst = req.get("analyst", "윌리엄 오닐 AI")
+    verdict = req.get("verdict", "")
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker required")
+
+    with _polls_lock:
+        if ticker not in _polls_data:
+            _polls_data[ticker] = {
+                "bullish": 0, "neutral": 0, "bearish": 0,
+                "name": name, "analyst": analyst, "verdict": verdict,
+                "date": datetime.now().strftime("%Y-%m-%d"),
+            }
+            _save_polls()
+    return {"ok": True}
+
+
+@app.post("/api/community/seed")
+async def seed_community(req: dict):
+    """초기 시드 데이터 등록 (이미 있으면 무시)"""
+    items = req.get("items", [])
+    with _polls_lock:
+        for item in items:
+            ticker = item.get("ticker", "").strip().upper()
+            if ticker and ticker not in _polls_data:
+                _polls_data[ticker] = {
+                    "bullish": item.get("bullish", 0),
+                    "neutral": item.get("neutral", 0),
+                    "bearish": item.get("bearish", 0),
+                    "name": item.get("name", ""),
+                    "analyst": item.get("analyst", ""),
+                    "verdict": item.get("verdict", ""),
+                    "date": item.get("date", ""),
+                }
+        _save_polls()
+    return {"ok": True, "total": len(_polls_data)}
+
+
+@app.get("/api/community/user_votes")
+async def get_user_votes(session_id: str = "anonymous"):
+    """특정 세션의 투표 내역 조회"""
+    prefix = f"{session_id}:"
+    votes = {}
+    with _polls_lock:
+        for key, val in _user_votes.items():
+            if key.startswith(prefix):
+                ticker = key[len(prefix):]
+                votes[ticker] = val
+    return {"votes": votes}
 
 
 # ── 정적 파일 서빙 (프론트엔드) ─────────────────────
