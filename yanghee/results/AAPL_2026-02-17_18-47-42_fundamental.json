@@ -1,0 +1,282 @@
+{
+  "ticker": "AAPL",
+  "timestamp": "2026-02-17_18-47-42",
+  "mode": "fundamental_analysis",
+  "ai_analysis": "자, 개인 투자자 여러분, 똑바로 들으십시오. 감정은 시장에서 가장 위험한 적입니다. 오직 데이터와 증명된 규칙만이 여러분을 성공으로 이끌 수 있습니다. 우리는 1880년대부터 오늘날까지 수많은 시장의 위대한 승자들을 연구했고, 그들은 결코 감정에 기반하여 움직이지 않았습니다. 여러분의 개인적인 의견은 중요하지 않습니다. 중요한 것은 시장이 말하는 바와 우리의 CAN SLIM 규칙이 보여주는 사실뿐입니다.\n\nAAPL에 대한 데이터를 엄격하게 우리의 CAN SLIM 프레임워크에 따라 분석해 보겠습니다. 기억하십시오, 우리는 추측이 아니라, 객관적인 수치와 검증된 원칙에 따라 판단합니다.\n\n## CAN SLIM 기본적 분석 보고서: AAPL\n\n### C — 분기 실적 (Current Quarterly Earnings)\n제공된 데이터에 따르면, AAPL의 최근 분기 EPS 성장률은 15.9%입니다. 우리의 연구에 따르면, 위대한 승자들은 보통 최신 분기에 최소 25-50% 이상, 이상적으로는 40-500% 이상의 EPS 성장을 보였습니다. 특히, 위대한 승자 중 3분의 4는 주요 상승 전에 평균 70% 이상의 EPS 증가를 기록했습니다. 15.9%는 이 기준에 한참 미치지 못합니다. 또한, O'Neil 원문 규칙은 매출 성장률이 최소 25% 이상으로 EPS 성장을 뒷받침해야 한다고 명시하고 있으나, AAPL의 매출 성장률은 15.7%로 이 역시 우리의 최소 기준에 못 미칩니다. 가속/감속 여부를 판단할 충분한 과거 분기 EPS 성장률 데이터는 없지만, 현재의 성장률만으로도 우리의 엄격한 기준을 통과하지 못합니다.\n\n*   **판정: FAIL** — O'Neil 기준: 최소 분기 EPS 성장률 25-50% 이상, 매출 성장률 25% 이상. AAPL은 15.9%의 EPS 성장과 15.7%의 매출 성장으로 이 기준에 명백히 미달합니다.\n\n### A — 연간 실적 (Annual Earnings)\nAAPL의 연간 순이익 성장률은 지난 3년간 [19.5% (예상), -3.4%, -2.8%]를 보였습니다. O'Neil 원문 규칙은 지난 3년(이상적으로는 5년) 동안 매년 최소 25%의 연간 EPS 성장을 요구하며, 이상적으로는 50% 또는 그 이상입니다. 또한, 두 번째 해의 실적이 하락하는 것을 원하지 않습니다. AAPL은 지난 두 해 동안 연속적인 EPS 감소를 보였으며, 이는 우리의 기준에 명확히 위배됩니다. 예상되는 2025년 성장률인 19.5%조차 최소 기준인 25%에 미치지 못합니다.\n그러나 ROE는 152.0%로, 우리의 최소 요구 사항인 17%와 이상적인 25-50%를 훨씬 뛰어넘는 놀라운 수치입니다. 이는 매우 긍정적이지만, 지속적이고 높은 연간 EPS 성장이 부족하다는 근본적인 문제는 해결하지 못합니다.\n\n*   **판정: FAIL** — O'Neil 기준: 지난 3년간 매년 최소 25%의 연간 EPS 성장. AAPL은 지난 2년간 마이너스 성장을 기록했으며, 예상되는 성장률도 25% 미만입니다. 높은 ROE는 긍정적이나, 일관된 연간 EPS 성장의 부재는 심각한 약점입니다.\n\n### N — 신촉매 (New Catalyst)\nAAPL은 Apple Vision Pro 출시, 새로운 iPhone, Watch, MacBook 모델 및 M3 칩 통합, 그리고 인공지능(AI) 통합에 대한 산업 트렌드 집중 등 분명한 '새로운' 요소를 가지고 있습니다. 우리의 연구에 따르면, 위대한 주식 승자의 95% 이상이 혁신적인 신제품/서비스, 경영진 교체, 또는 새로운 산업 상황과 같은 '새로운' 것에 의해 주도되었습니다. Apple Vision Pro는 잠재적으로 큰 신규 시장을 여는 혁신적인 제품이 될 수 있습니다.\n그러나 'N' 요소의 중요한 부분은 \"올바른 형태의 베이스에서 신고가 돌파\"하는 것입니다. AAPL의 현재 주가는 52주 신고가($288.62)에서 11.4% 하락한 $255.78입니다. 이는 주식이 신고가를 돌파하며 매수 지점을 형성하는 시나리오가 아닙니다. O'Neil은 주식이 정확한 매수 지점보다 5-10% 이상 높으면 피하라고 말합니다. 이는 주식이 신고가를 돌파할 때의 이야기입니다. 현재 주가는 오히려 신고가에서 상당히 떨어져 있습니다.\n\n*   **판정: CAUTION** — O'Neil 기준: 신제품/서비스, 경영진 교체, 신산업 트렌드는 긍정적이나, 주식은 올바른 베이스에서 신고가를 돌파해야 합니다. AAPL은 강력한 '신제품' 촉매를 가지고 있지만, 현재 신고가에서 멀리 떨어져 있어 '신고가 돌파' 요건을 충족하지 못합니다.\n\n### S — 수급 (Supply & Demand)\nAAPL은 시가총액 3.8조 달러의 초대형주입니다. 우리의 연구는 더 적은 발행 주식을 가진 소형주가 더 빠르게 움직일 수 있다고 지적합니다. 내부자 소유권은 1.7%로, 대기업의 경우 1-3% 선호 기준 내에 있습니다. 지난 1년간 발행 주식 수가 1.6% 감소했다는 것은 자사주 매입이 이루어졌음을 의미하며 이는 주가에 긍정적인 요인입니다. 그러나 O'Neil은 10%의 자사주 매입을 \"상당히 의미 있는\" 것으로 봅니다. 1.6%는 긍정적이지만, 우리의 \"상당히 의미 있는\" 기준에는 미치지 못합니다.\n가장 큰 우려 사항은 부채비율(Debt-to-Equity)이 102.6%라는 점입니다. O'Neil은 일반적으로 부채비율이 낮을수록 좋다고 말하며, 부채가 많은 기업은 훨씬 더 높은 위험을 수반한다고 경고합니다. 이 높은 부채비율은 분명한 리스크 요인입니다.\n\n*   **판정: CAUTION** — O'Neil 기준: 소형주 선호, 경영진 대량 지분 보유, 10% 자사주 매입 긍정적, 낮은 부채비율. AAPL의 거대한 시가총액과 높은 부채비율은 우려를 표합니다. 긍정적인 자사주 매입과 내부자 지분율은 있지만, 부채비율이 상당히 높은 것이 약점입니다.\n\n### L — 리더/래거드 (Leader or Laggard)\nAAPL의 RS Rating은 50/99입니다. 윌리엄 오닐은 RS Rating 85 이상을 요구하며, 40점대, 50점대, 60점대의 RS Rating을 가진 주식은 절대 사지 말라고 명확히 지시합니다. 이러한 주식들은 시장의 진정한 리더가 아닙니다. RS Trend가 'FALLING'이라는 점은 더욱 우려스럽습니다. 비록 26주 기준으로는 S&P 500을 12.9% 아웃퍼폼했지만, 가장 최근인 13주 기준으로는 -0.7% 언더퍼폼하고 있으며, 현재 RS Rating 50은 시장 리더로서의 지위를 명백히 부정합니다.\n\n*   **판정: FAIL** — O'Neil 기준: RS Rating 85 이상 필수. AAPL의 RS Rating 50은 O'Neil의 가장 핵심적인 선택 기준 중 하나를 명확히 위반합니다. RS Trend가 하락하고 있다는 점도 부정적입니다.\n\n### I — 기관 투자 (Institutional Sponsorship)\nAAPL의 기관 보유율은 65.5%입니다. 제공된 데이터에는 상위 10개 기관이 나열되어 있으며, Vanguard, Blackrock, Berkshire Hathaway와 같은 최고 품질의 기관들이 포함되어 있습니다. 이는 긍정적입니다. 그러나 O'Neil 원문 규칙은 소형/신생 기업의 경우 최소 20개 이상의 기관 스폰서를 요구하며, 중요한 것은 기관 보유자 수의 '증가' 추세입니다. 우리는 기관 보유자 수가 '10'이라고 명시된 데이터를 받았는데, 이는 우리의 최소 요구치인 '20'에 미치지 못합니다. 또한, 최근 분기에 기관 투자자 수가 '증가'했는지에 대한 정보가 없습니다. 너무 많은 기관이 보유하고 있으면 대규모 매도 발생 시 위험이 커질 수 있다는 점도 염두에 두어야 합니다.\n\n*   **판정: CAUTION** — O'Neil 기준: 최소 20개 이상의 기관 투자자, 증가하는 기관 수, 고품질 기관 보유. AAPL은 고품질 기관이 보유하고 있지만, 제공된 '기관 보유자 수' 10개는 기준에 미달하며, 기관 보유자 수 증가 추세에 대한 데이터가 부족합니다.\n\n### M — 시장 방향 (Market Direction)\n이것은 전체 투자 게임의 50%를 차지하는 가장 중요한 요소입니다. 여러분이 다른 모든 요소에서 옳다고 하더라도, 시장이 하락세로 돌아서면 4개 중 3개의 주식이 하락할 것입니다.\nS&P 500은 'SIDEWAYS' 추세이며, 5주 이내에 5개의 '분배일(Distribution Days)'이 감지되었습니다. NASDAQ은 'DOWNTREND'이며, 5주 이내에 6개의 분배일이 감지되었습니다. O'Neil은 4-5주 내에 3-5개의 분배일이 나타나면 시장 정점 신호라고 명확히 밝혔습니다. S&P 500과 NASDAQ 모두 이 기준을 충족하거나 초과하고 있으며, 이는 시장이 심각한 압박을 받고 있거나 하락세로 전환되었음을 강력히 시사합니다. 이러한 시장 환경에서는 아무리 좋은 주식도 큰 폭의 조정을 피하기 어렵습니다.\n\n*   **판정: FAIL** — O'Neil 기준: 4-5주 이내 3-5개의 분배일은 시장 정점 신호. S&P 500과 NASDAQ 모두 5-6개의 분배일이 감지되었으며, 특히 NASDAQ은 하락 추세에 있습니다. 이는 시장 전체가 위험한 구간에 있다는 명백한 경고입니다.\n\n---\n\n### 종합 CAN SLIM 평가 요약\nAAPL은 우리의 엄격한 CAN SLIM 프레임워크에 따라 평가했을 때 다음과 같은 결과를 보였습니다:\n*   **PASS**: 0개\n*   **FAIL**: 4개 (C: 분기 실적, A: 연간 실적, L: 리더/래거드, M: 시장 방향)\n*   **CAUTION**: 3개 (N: 신촉매, S: 수급, I: 기관 투자)\n\n**가장 강한 요소**: 연간 실적의 ROE는 매우 인상적입니다. 신촉매인 Apple Vision Pro 또한 장기적인 성장 가능성을 제시합니다.\n**가장 약한 요소**: 현재 분기 EPS 성장률, 연간 EPS 성장 일관성, 결정적으로 낮은 RS Rating (50점)은 심각한 약점입니다. 게다가, 현재 시장 방향(Market Direction)이 명확히 'FAIL'이라는 점은 어떤 주식이라도 큰 리스크를 안고 있음을 의미합니다. O'Neil은 \"시장이 50%의 게임\"이라고 말했습니다. 이 점을 절대 간과해서는 안 됩니다.\n\n### 주요 리스크 요인\n1.  **성장률 부족 및 불일치**: 분기 및 연간 EPS 성장률이 우리의 최소 기준에 미치지 못하며, 연간 성장이 일관되지 않아 진정한 성장주로서의 요건을 충족하지 못합니다.\n2.  **낮은 상대적 강도 (RS Rating)**: RS Rating 50은 O'Neil 시스템에서 해당 주식을 고려할 자격조차 없게 만듭니다. 우리는 시장에서 가장 강한 리더만을 추구합니다.\n3.  **높은 부채비율**: 102.6%의 부채비율은 재무 건전성 측면에서 리스크를 높입니다.\n4.  **불리한 시장 환경**: S&P 500과 NASDAQ 모두 다수의 분배일로 인해 시장 정점 신호를 보내고 있으며, NASDAQ은 이미 하락 추세에 진입했습니다. 이러한 시기에는 최고의 주식조차도 하락을 피하기 어렵습니다.\n\n### O'Neil의 종합 의견\n투자자 여러분, 데이터를 보십시오. AAPL은 현재 우리의 엄격한 CAN SLIM 기준을 충족하지 못하고 있습니다. 특히 분기 및 연간 수익 성장의 부재, 그리고 치명적인 RS Rating 50은 이 주식이 현재 시장의 리더가 아니라는 것을 명확히 보여줍니다. 당신의 개인적인 감정이나 \"애플은 대단한 회사니까 괜찮을 거야\"라는 생각은 시장에서 당신을 파산시킬 수 있습니다. 주식은 당신이 누구인지 알지 못하며, 당신이 무엇을 희망하거나 원하는지 상관하지 않습니다.\n\n더욱이, 시장 전체가 심각한 분배일 신호를 보내고 있으며, 이는 3개 중 4개의 주식이 결국 하락할 것이라는 강력한 경고입니다. 이런 상황에서 RS Rating이 낮은 주식을 \"싸다고\" 매수하려는 것은 마치 떨어지는 칼날을 잡으려는 것과 같습니다. Cisco가 $82에서 $8로, Bank of America가 $55에서 $6으로 떨어졌을 때, 수많은 투자자들이 \"이제 충분히 싸다\"며 물타기를 했지만, 그 결과는 참담했습니다. 우리는 그런 실수를 절대 용납하지 않습니다.\n\n현재 AAPL은 우리의 기준에서 진정한 시장 리더가 아니며, 특히 시장 환경이 불리한 상황에서는 더욱 그렇습니다. 우리의 규칙은 간단합니다: 시장이 말하는 것을 따르고, 손실은 7-8%에서 즉시 잘라내십시오. AAPL은 현재 우리의 주요 매수 기준을 충족하지 못합니다. 시장이 약세일 때는 현금을 보유하는 것이 최선의 전략일 수 있습니다. 여러분의 돈을 보호하고, 규칙을 따르십시오. 그것이 시장에서 살아남고 궁극적으로 큰돈을 버는 유일한 길입니다.",
+  "fundamental_data": {
+    "C": {
+      "quarterly_eps_growth_yoy": [
+        15.9
+      ],
+      "quarterly_revenue": [
+        {
+          "period": "2025-12",
+          "revenue": 143756000000.0
+        },
+        {
+          "period": "2025-09",
+          "revenue": 102466000000.0
+        },
+        {
+          "period": "2025-06",
+          "revenue": 94036000000.0
+        },
+        {
+          "period": "2025-03",
+          "revenue": 95359000000.0
+        },
+        {
+          "period": "2024-12",
+          "revenue": 124300000000.0
+        }
+      ],
+      "quarterly_net_income": [
+        {
+          "period": "2025-12",
+          "net_income": 42097000000.0
+        },
+        {
+          "period": "2025-09",
+          "net_income": 27466000000.0
+        },
+        {
+          "period": "2025-06",
+          "net_income": 23434000000.0
+        },
+        {
+          "period": "2025-03",
+          "net_income": 24780000000.0
+        },
+        {
+          "period": "2024-12",
+          "net_income": 36330000000.0
+        }
+      ],
+      "revenue_growth": 15.7,
+      "eps_acceleration": null,
+      "data_note": ""
+    },
+    "A": {
+      "annual_net_income": [
+        {
+          "year": "2025",
+          "net_income": 112010000000.0
+        },
+        {
+          "year": "2024",
+          "net_income": 93736000000.0
+        },
+        {
+          "year": "2023",
+          "net_income": 96995000000.0
+        },
+        {
+          "year": "2022",
+          "net_income": 99803000000.0
+        }
+      ],
+      "annual_growth_rates": [
+        19.5,
+        -3.4,
+        -2.8
+      ],
+      "consecutive_growth_years": 1,
+      "roe": 152.0,
+      "pe_ratio": 32.4,
+      "forward_pe": 27.6,
+      "profit_margins": 27.0,
+      "data_note": ""
+    },
+    "N": {
+      "fifty_two_week_high": 288.62,
+      "fifty_two_week_low": 169.21,
+      "current_price": 255.78,
+      "pct_from_52w_high": -11.4,
+      "fifty_two_week_return": 51.2,
+      "near_52w_high": false,
+      "ai_catalyst": {
+        "new_products": [
+          "Apple Vision Pro (announced June 2023, launched February 2024)",
+          "iPhone 15, iPhone 15 Plus, iPhone 15 Pro, iPhone 15 Pro Max (launched September 2023)",
+          "Apple Watch Series 9 & Apple Watch Ultra 2 (launched September 2023)",
+          "M3, M3 Pro, and M3 Max chips (announced October 2023, integrated into new MacBook Pro & iMac models)",
+          "New MacBook Air models with M3 chip (launched March 2024)"
+        ],
+        "new_management": [
+          "Peter Stern, VP of Services, departed (early 2024)",
+          "Tang Tan, VP of Product Design for iPhone, departed (early 2024)",
+          "Djuro Rabar, Head of software engineering for Vision Pro, departed (early 2024)"
+        ],
+        "new_industry_trends": [
+          "Emergence and increasing adoption of Spatial Computing/Augmented Reality (AR) technologies, creating a new market segment.",
+          "Continued robust demand and premiumization within the global smartphone and wearables markets, benefiting high-end device manufacturers.",
+          "Accelerated industry-wide focus on integrating Artificial Intelligence (AI) and generative AI capabilities into consumer devices and services."
+        ],
+        "catalyst_summary": "The most significant 'New' factor for Apple is the launch of the Apple Vision Pro, representing the company's entry into spatial computing and a potential new major product category beyond its existing lines. This initiative aligns Apple with the burgeoning industry trend towards augmented reality and spatial computing, offering a substantial long-term growth avenue.",
+        "has_meaningful_catalyst": true
+      },
+      "data_note": ""
+    },
+    "S": {
+      "market_cap": 3759435415552,
+      "market_cap_label": "Large Cap",
+      "shares_outstanding": 14681140000,
+      "float_shares": 14656182062,
+      "insider_pct": 1.7,
+      "debt_to_equity": 102.6,
+      "buyback_detected": false,
+      "share_change_pct": -1.6,
+      "data_note": ""
+    },
+    "L": {
+      "sector": "Technology",
+      "industry": "Consumer Electronics",
+      "rs_rating": 50,
+      "rs_trend": "FALLING",
+      "rs_new_high": false,
+      "rs_vs_benchmark": {
+        "13w": {
+          "stock_return": 2.2,
+          "benchmark_return": 2.9,
+          "outperformance": -0.7
+        },
+        "26w": {
+          "stock_return": 20.3,
+          "benchmark_return": 7.5,
+          "outperformance": 12.9
+        },
+        "52w": {
+          "stock_return": 14.2,
+          "benchmark_return": 13.4,
+          "outperformance": 0.8
+        }
+      },
+      "benchmark": "S&P 500",
+      "data_note": ""
+    },
+    "I": {
+      "inst_holders_pct": 65.5,
+      "inst_holders_count": 10,
+      "top_holders": [
+        {
+          "name": "Vanguard Group Inc",
+          "shares": 1426283914,
+          "value": 364814897781
+        },
+        {
+          "name": "Blackrock Inc.",
+          "shares": 1154665731,
+          "value": 295340399265
+        },
+        {
+          "name": "State Street Corporation",
+          "shares": 604056505,
+          "value": 154505572111
+        },
+        {
+          "name": "Geode Capital Management, LLC",
+          "shares": 358032517,
+          "value": 91577556761
+        },
+        {
+          "name": "FMR, LLC",
+          "shares": 303254081,
+          "value": 77566328467
+        },
+        {
+          "name": "Berkshire Hathaway, Inc",
+          "shares": 238212764,
+          "value": 60930060485
+        },
+        {
+          "name": "Morgan Stanley",
+          "shares": 230483035,
+          "value": 58952950410
+        },
+        {
+          "name": "JPMORGAN CHASE & CO",
+          "shares": 225419111,
+          "value": 57657699936
+        },
+        {
+          "name": "Price (T.Rowe) Associates Inc",
+          "shares": 212755053,
+          "value": 54418487196
+        },
+        {
+          "name": "NORGES BANK",
+          "shares": 192255086,
+          "value": 49175005662
+        }
+      ],
+      "data_note": ""
+    },
+    "M": {
+      "sp500": {
+        "name": "S&P 500",
+        "current_price": 6836.17,
+        "vs_50dma": -0.8,
+        "vs_200dma": 5.1,
+        "trend": "SIDEWAYS",
+        "distribution_days_5wk": 5,
+        "recent_distribution": [
+          {
+            "date": "2026-01-14",
+            "change": -0.53
+          },
+          {
+            "date": "2026-01-20",
+            "change": -2.06
+          },
+          {
+            "date": "2026-02-03",
+            "change": -0.84
+          },
+          {
+            "date": "2026-02-04",
+            "change": -0.51
+          },
+          {
+            "date": "2026-02-12",
+            "change": -1.57
+          }
+        ]
+      },
+      "nasdaq": {
+        "name": "NASDAQ",
+        "current_price": 22546.67,
+        "vs_50dma": -3.5,
+        "vs_200dma": 3.5,
+        "trend": "DOWNTREND",
+        "distribution_days_5wk": 6,
+        "recent_distribution": [
+          {
+            "date": "2026-01-14",
+            "change": -1.0
+          },
+          {
+            "date": "2026-01-29",
+            "change": -0.72
+          },
+          {
+            "date": "2026-01-30",
+            "change": -0.94
+          },
+          {
+            "date": "2026-02-03",
+            "change": -1.43
+          },
+          {
+            "date": "2026-02-04",
+            "change": -1.51
+          },
+          {
+            "date": "2026-02-10",
+            "change": -0.59
+          }
+        ]
+      },
+      "data_note": ""
+    }
+  }
+}
