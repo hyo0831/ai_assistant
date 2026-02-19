@@ -1,8 +1,15 @@
 """
 CLI entry point for William O'Neil AI Investment Assistant
 """
+import sys
 import re
 from datetime import datetime
+
+# Windows cp949 터미널에서 UTF-8 출력 보장
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 from core.config import CHART_OUTPUT_PATH
 from core.data_fetcher import fetch_stock_data, calculate_moving_averages
@@ -34,8 +41,7 @@ def _print_analysis_result(analysis: str, rs_info: dict = None):
         print("-" * 40)
 
     print()
-    safe_analysis = analysis.encode('cp949', errors='replace').decode('cp949')
-    print(safe_analysis)
+    print(analysis)
     print()
     print("=" * 80)
     print(f"차트 저장 위치 (Chart saved): {CHART_OUTPUT_PATH}")

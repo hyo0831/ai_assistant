@@ -6,6 +6,7 @@
     <title>ORION AI - 주도주 사냥꾼</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <style>
@@ -13,9 +14,16 @@
         .animate-in { animation: fadeIn 0.5s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .glass-header { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); }
-        .search-dropdown { max-height: 280px; overflow-y: auto; }
-        .search-dropdown::-webkit-scrollbar { width: 6px; }
-        .search-dropdown::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .hidden { display: none; }
+        #tab-trade.active, #tab-logic.active {
+            color: #4f46e5;
+            border-bottom-color: #4f46e5;
+            border-bottom-width: 2px;
+        }
+        #tab-trade, #tab-logic {
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="text-slate-900">
@@ -33,23 +41,53 @@
                 <nav class="hidden lg:flex items-center gap-1">
                     <button onclick="navigate('홈')" class="nav-item px-5 py-2 rounded-full text-sm font-bold transition-all bg-indigo-50 text-indigo-600" data-page="홈">홈</button>
                     <button onclick="navigate('커뮤')" class="nav-item px-5 py-2 rounded-full text-sm font-bold transition-all text-slate-500 hover:bg-slate-50" data-page="커뮤">커뮤니티</button>
-                    <button onclick="navigate('커스텀AI')" class="nav-item px-5 py-2 rounded-full text-sm font-bold transition-all text-slate-500 hover:bg-slate-50" data-page="커스텀AI">커스텀AI</button>
+                    <button onclick="navigate('스크리너')" class="nav-item px-5 py-2 rounded-full text-sm font-bold transition-all text-slate-500 hover:bg-slate-50" data-page="스크리너">스크리너</button>
                 </nav>
             </div>
             <div class="flex items-center gap-3">
-                <div class="relative hidden md:block">
-                    <div class="flex items-center bg-slate-100 rounded-full px-4 py-2 w-72 border border-transparent focus-within:bg-white focus-within:border-slate-200 transition-all">
-                        <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
-                        <input class="bg-transparent border-none outline-none px-3 text-sm w-full" placeholder="종목명 또는 티커 검색..." id="header-search"
-                            oninput="onSearchInput(this.value, 'header-search-results')"
-                            onkeydown="onSearchKeydown(event, 'header-search-results')"
-                            onfocus="if(this.value.length>=1) onSearchInput(this.value, 'header-search-results')"
-                            autocomplete="off">
-                    </div>
-                    <div id="header-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 hidden search-dropdown"></div>
+                <div class="hidden md:flex items-center bg-slate-100 rounded-full px-4 py-2 w-64 border border-transparent focus-within:bg-white focus-within:border-slate-200 transition-all">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+                    <input class="bg-transparent border-none outline-none px-3 text-sm w-full" placeholder="종목 검색..." id="header-search" onkeydown="if(event.key==='Enter') goToApp(this.value)">
                 </div>
-                <div class="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center border border-indigo-200 ml-2">
-                    <i data-lucide="user" class="w-5 h-5 text-indigo-600"></i>
+                <button id="premium-btn" onclick="openUpgradeModal()" class="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-white text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm transition-all">
+                    ⚡ 프리미엄
+                </button>
+                <!-- 유저 버튼 + 드롭다운 -->
+                <div class="relative">
+                    <button id="user-btn" onclick="toggleUserDropdown()"
+                        class="w-9 h-9 bg-indigo-100 rounded-full flex items-center justify-center border border-indigo-200 cursor-pointer hover:bg-indigo-200 transition-all overflow-hidden">
+                        <i data-lucide="user" class="w-5 h-5 text-indigo-600" id="user-icon"></i>
+                        <img id="user-avatar" class="hidden w-full h-full object-cover rounded-full" src="" alt="">
+                    </button>
+
+                    <!-- 드롭다운 패널 -->
+                    <div id="user-dropdown" class="hidden absolute top-12 right-0 w-72 bg-white rounded-2xl shadow-xl border border-slate-100 z-[400] overflow-hidden">
+                        <!-- 비로그인 상태 -->
+                        <div id="dropdown-guest" class="p-5">
+                            <p class="text-sm font-bold text-slate-800 mb-1">로그인이 필요합니다</p>
+                            <p class="text-xs text-slate-400 mb-4">로그인하면 분석 기록이 저장됩니다</p>
+                            <div id="google-signin-btn"></div>
+                        </div>
+                        <!-- 로그인 상태 -->
+                        <div id="dropdown-user" class="hidden">
+                            <div class="p-4 border-b border-slate-100 flex items-center gap-3">
+                                <img id="dropdown-avatar" class="w-10 h-10 rounded-full border border-slate-200" src="" alt="">
+                                <div class="overflow-hidden">
+                                    <p id="dropdown-name" class="font-bold text-sm text-slate-900"></p>
+                                    <p id="dropdown-email" class="text-xs text-slate-400 truncate"></p>
+                                </div>
+                            </div>
+                            <div class="p-3">
+                                <p class="text-xs font-bold text-slate-500 mb-2 px-1">최근 분석 기록</p>
+                                <div id="analysis-history-list" class="space-y-0.5 max-h-52 overflow-y-auto"></div>
+                            </div>
+                            <div class="p-3 border-t border-slate-100">
+                                <button onclick="signOut()" class="w-full py-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                                    로그아웃
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -71,120 +109,392 @@
         </div>
     </footer>
 
-    <!-- 모달 (오닐 봇은 넓은 모달) -->
-    <div id="modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal()">
-        <div id="modal-box" class="bg-white rounded-3xl w-full p-10 shadow-2xl relative border border-slate-100 transition-all">
-            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-900 text-xl z-10">✕</button>
+    <!-- 업그레이드 모달 -->
+    <div id="upgrade-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl relative border border-slate-100">
+            <button onclick="closeUpgradeModal()" class="absolute top-5 right-5 text-slate-400 hover:text-slate-900 text-xl">✕</button>
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span class="text-3xl">⚡</span>
+                </div>
+                <h2 class="text-2xl font-extrabold text-slate-900 mb-2">ORION AI 프리미엄</h2>
+                <p class="text-slate-500 text-sm">무제한 분석으로 주도주를 발굴하세요</p>
+            </div>
+
+            <div id="upgrade-free-status" class="bg-slate-50 rounded-2xl p-4 mb-5 text-center">
+                <p class="text-xs text-slate-500 mb-1">오늘 사용한 무료 분석</p>
+                <p class="text-2xl font-black text-slate-900"><span id="upgrade-count">0</span> / 3회</p>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span class="text-slate-700">하루 <strong>무제한</strong> 트레이딩 & 펀더멘털 분석</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span class="text-slate-700">CAN SLIM 7항목 상세 점수카드</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span class="text-slate-700">AI 차트 패턴 분석 (컵&핸들, 더블바텀 등)</span>
+                </div>
+                <div class="flex items-center gap-3 text-sm">
+                    <span class="text-emerald-500 font-bold">✓</span>
+                    <span class="text-slate-700">RS 레이팅 & 매매 신호 실시간 생성</span>
+                </div>
+            </div>
+
+            <a href="https://buy.polar.sh/polar_cl_S7oxphVRxTE5KSs1WLXlsf9sCs6iZ4AhhfCeV4QMJg4" target="_blank"
+               class="block w-full py-4 bg-amber-400 hover:bg-amber-500 text-white text-center font-extrabold rounded-2xl transition-all shadow-lg shadow-amber-100 text-lg mb-3">
+                ⚡ 프리미엄 시작하기
+            </a>
+            <p class="text-center text-xs text-slate-400">결제 후 이 페이지로 돌아와 아래 버튼을 클릭하세요</p>
+            <button onclick="activatePremium()" class="mt-2 w-full py-2 border border-slate-200 text-slate-500 text-sm rounded-xl hover:bg-slate-50 transition-all">
+                결제 완료 → 프리미엄 활성화
+            </button>
+        </div>
+    </div>
+
+    <!-- 모달 -->
+    <div id="modal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] hidden items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-10 shadow-2xl relative border border-slate-100">
+            <button onclick="closeModal()" class="absolute top-6 right-6 text-slate-400 hover:text-slate-900">✕</button>
             <div id="modal-content"></div>
         </div>
     </div>
 
     <script>
         let currentPage = '홈';
-        let searchTimer = null;
-        let selectedSearchIdx = -1;
+        let modalMode = null;  // 선택된 모드 ('trading' or 'analysis')
+        let searchResults = [];
 
-        // ── 종목 검색 자동완성 ──────────────────────────
-        function onSearchInput(query, resultId) {
-            clearTimeout(searchTimer);
-            const container = document.getElementById(resultId);
-            if (!query || query.trim().length < 1) {
-                container.classList.add('hidden');
+        // ── Google 로그인 시스템 ──────────────────────────────
+        const GOOGLE_CLIENT_ID = '1073242702988-dov3ulf0t4crskrnf2hmsgg0n3fbells.apps.googleusercontent.com';
+        let currentUser = null;
+        let userDropdownOpen = false;
+
+        function initGoogleAuth() {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleCredential,
+                auto_select: false,
+            });
+            // 저장된 유저 복구
+            const savedUser = localStorage.getItem('gUser');
+            if (savedUser) {
+                try { currentUser = JSON.parse(savedUser); updateUserUI(); } catch(e) {}
+            }
+        }
+
+        function handleGoogleCredential(response) {
+            // JWT 페이로드 디코드 (base64)
+            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            currentUser = {
+                sub: payload.sub,
+                name: payload.name,
+                email: payload.email,
+                picture: payload.picture,
+            };
+            localStorage.setItem('gUser', JSON.stringify(currentUser));
+            updateUserUI();
+            closeUserDropdown();
+        }
+
+        function updateUserUI() {
+            const userIcon = document.getElementById('user-icon');
+            const userAvatar = document.getElementById('user-avatar');
+            if (currentUser) {
+                if (userIcon) userIcon.classList.add('hidden');
+                if (userAvatar) { userAvatar.src = currentUser.picture; userAvatar.classList.remove('hidden'); }
+            } else {
+                if (userIcon) userIcon.classList.remove('hidden');
+                if (userAvatar) userAvatar.classList.add('hidden');
+            }
+        }
+
+        function toggleUserDropdown() {
+            userDropdownOpen = !userDropdownOpen;
+            const dropdown = document.getElementById('user-dropdown');
+            if (!dropdown) return;
+            if (userDropdownOpen) {
+                dropdown.classList.remove('hidden');
+                updateDropdownContent();
+                // 비로그인 상태이면 Google 버튼 렌더링
+                if (!currentUser && typeof google !== 'undefined') {
+                    setTimeout(() => {
+                        const btnEl = document.getElementById('google-signin-btn');
+                        if (btnEl && btnEl.children.length === 0) {
+                            google.accounts.id.renderButton(btnEl, {
+                                theme: 'outline', size: 'large', width: 232, text: 'signin_with', locale: 'ko',
+                            });
+                        }
+                    }, 50);
+                }
+            } else {
+                dropdown.classList.add('hidden');
+            }
+        }
+
+        function closeUserDropdown() {
+            userDropdownOpen = false;
+            const dropdown = document.getElementById('user-dropdown');
+            if (dropdown) dropdown.classList.add('hidden');
+        }
+
+        function updateDropdownContent() {
+            const guestDiv = document.getElementById('dropdown-guest');
+            const userDiv = document.getElementById('dropdown-user');
+            if (currentUser) {
+                if (guestDiv) guestDiv.classList.add('hidden');
+                if (userDiv) userDiv.classList.remove('hidden');
+                const nameEl = document.getElementById('dropdown-name');
+                const emailEl = document.getElementById('dropdown-email');
+                const avatarEl = document.getElementById('dropdown-avatar');
+                if (nameEl) nameEl.textContent = currentUser.name;
+                if (emailEl) emailEl.textContent = currentUser.email;
+                if (avatarEl) avatarEl.src = currentUser.picture;
+                renderAnalysisHistory();
+            } else {
+                if (guestDiv) guestDiv.classList.remove('hidden');
+                if (userDiv) userDiv.classList.add('hidden');
+            }
+        }
+
+        function signOut() {
+            if (typeof google !== 'undefined') google.accounts.id.disableAutoSelect();
+            currentUser = null;
+            localStorage.removeItem('gUser');
+            updateUserUI();
+            closeUserDropdown();
+        }
+
+        // ── 분석 기록 저장/조회 ──────────────────────────────
+        function saveAnalysisHistory(ticker, mode) {
+            if (!currentUser) return;
+            const key = `history_${currentUser.sub}`;
+            const history = JSON.parse(localStorage.getItem(key) || '[]');
+            const filtered = history.filter(h => !(h.ticker === ticker && h.mode === mode));
+            filtered.unshift({ ticker, mode, date: new Date().toISOString().split('T')[0] });
+            localStorage.setItem(key, JSON.stringify(filtered.slice(0, 20)));
+        }
+
+        function renderAnalysisHistory() {
+            const listEl = document.getElementById('analysis-history-list');
+            if (!listEl || !currentUser) return;
+            const history = JSON.parse(localStorage.getItem(`history_${currentUser.sub}`) || '[]');
+            if (history.length === 0) {
+                listEl.innerHTML = '<p class="text-xs text-slate-300 text-center py-3">분석 기록이 없습니다</p>';
                 return;
             }
-            searchTimer = setTimeout(() => fetchSearchResults(query.trim(), resultId), 250);
-        }
-
-        async function fetchSearchResults(query, resultId) {
-            const container = document.getElementById(resultId);
-            try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                if (!data.results || data.results.length === 0) {
-                    container.innerHTML = '<div class="p-4 text-sm text-slate-400 text-center">검색 결과가 없습니다</div>';
-                    container.classList.remove('hidden');
-                    return;
-                }
-                selectedSearchIdx = -1;
-                container.innerHTML = data.results.map((item, i) => `
-                    <div class="search-item flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-indigo-50 transition-colors ${i === 0 ? 'rounded-t-xl' : ''} ${i === data.results.length - 1 ? 'rounded-b-xl' : ''}"
-                         data-symbol="${item.symbol}" data-idx="${i}"
-                         onclick="selectSearchResult('${item.symbol}', '${resultId}')">
-                        <div class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center shrink-0">
-                            <span class="text-[10px] font-black text-slate-500">${item.type === 'ETF' ? 'ETF' : item.exchange.substring(0,3)}</span>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="text-sm font-bold text-slate-900 truncate">${item.symbol}</div>
-                            <div class="text-xs text-slate-400 truncate">${item.name}</div>
-                        </div>
-                        <span class="text-[10px] text-slate-300 shrink-0">${item.exchange}</span>
+            listEl.innerHTML = history.slice(0, 8).map(h => `
+                <div class="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-slate-50 cursor-pointer"
+                     onclick="closeUserDropdown(); window.location.href='/${h.mode}.html?ticker=${encodeURIComponent(h.ticker)}&autostart=true'">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-slate-800">${h.ticker}</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded-full ${h.mode === 'trading' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}">${h.mode === 'trading' ? '트레이딩' : '분석'}</span>
                     </div>
-                `).join('');
-                container.classList.remove('hidden');
-            } catch (e) {
-                container.classList.add('hidden');
-            }
+                    <span class="text-[10px] text-slate-300">${h.date}</span>
+                </div>
+            `).join('');
         }
 
-        function selectSearchResult(symbol, resultId) {
-            const container = document.getElementById(resultId);
-            container.classList.add('hidden');
-            // 헤더 검색이면 바로 app.html로 이동
-            if (resultId === 'header-search-results') {
-                document.getElementById('header-search').value = symbol;
-                window.location.href = `/app.html?ticker=${encodeURIComponent(symbol)}`;
-            }
-            // 모달 검색이면 입력란에 설정
-            if (resultId === 'modal-search-results') {
-                document.getElementById('modal-ticker').value = symbol;
-            }
-        }
-
-        function onSearchKeydown(e, resultId) {
-            const container = document.getElementById(resultId);
-            const items = container.querySelectorAll('.search-item');
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                selectedSearchIdx = Math.min(selectedSearchIdx + 1, items.length - 1);
-                items.forEach((el, i) => el.classList.toggle('bg-indigo-50', i === selectedSearchIdx));
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                selectedSearchIdx = Math.max(selectedSearchIdx - 1, 0);
-                items.forEach((el, i) => el.classList.toggle('bg-indigo-50', i === selectedSearchIdx));
-            } else if (e.key === 'Enter') {
-                if (selectedSearchIdx >= 0 && items[selectedSearchIdx]) {
-                    items[selectedSearchIdx].click();
-                } else if (e.target.value.trim()) {
-                    if (resultId === 'header-search-results') {
-                        window.location.href = `/app.html?ticker=${encodeURIComponent(e.target.value.trim().toUpperCase())}`;
-                    }
-                }
-            } else if (e.key === 'Escape') {
-                container.classList.add('hidden');
-            }
-        }
-
-        // 클릭 시 드롭다운 닫기
+        // 외부 클릭 시 드롭다운 닫기
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('#header-search') && !e.target.closest('#header-search-results')) {
-                document.getElementById('header-search-results')?.classList.add('hidden');
+            if (!e.target.closest('#user-btn') && !e.target.closest('#user-dropdown')) {
+                if (userDropdownOpen) closeUserDropdown();
             }
         });
 
-        // ── 앱 이동 ───────────────────────────────────
-        function goToAppWithMode(mode) {
-            const input = document.getElementById('modal-ticker');
-            const ticker = input?.value?.trim().toUpperCase();
-            if (!ticker) {
-                input.focus();
-                input.style.borderColor = '#ef4444';
-                setTimeout(() => input.style.borderColor = '', 2000);
-                return;
-            }
-            window.location.href = `/app.html?ticker=${encodeURIComponent(ticker)}&mode=${mode}&autostart=true`;
+        // ── 프리미엄 결제 시스템 ──────────────────────────────
+        const POLAR_CHECKOUT_URL = 'https://buy.polar.sh/polar_cl_S7oxphVRxTE5KSs1WLXlsf9sCs6iZ4AhhfCeV4QMJg4';
+        const FREE_DAILY_LIMIT = 3;
+
+        function isPremium() {
+            const expiry = localStorage.getItem('premium_expiry');
+            return expiry && new Date(expiry) > new Date();
         }
 
-        // ── 마스터 봇 데이터 ─────────────────────────
+        function getTodayCount() {
+            const today = new Date().toISOString().split('T')[0];
+            const savedDate = localStorage.getItem('analysis_date');
+            if (savedDate !== today) {
+                localStorage.setItem('analysis_date', today);
+                localStorage.setItem('analysis_count', '0');
+                return 0;
+            }
+            return parseInt(localStorage.getItem('analysis_count') || '0');
+        }
+
+        function incrementCount() {
+            const today = new Date().toISOString().split('T')[0];
+            localStorage.setItem('analysis_date', today);
+            const count = getTodayCount();
+            localStorage.setItem('analysis_count', String(count + 1));
+        }
+
+        function checkAnalysisLimit() {
+            if (isPremium()) return true;
+            const count = getTodayCount();
+            if (count >= FREE_DAILY_LIMIT) {
+                openUpgradeModal();
+                return false;
+            }
+            return true;
+        }
+
+        function openUpgradeModal() {
+            const count = getTodayCount();
+            const el = document.getElementById('upgrade-count');
+            if (el) el.textContent = count;
+            const modal = document.getElementById('upgrade-modal');
+            if (modal) modal.style.display = 'flex';
+            updatePremiumBtn();
+        }
+
+        function closeUpgradeModal() {
+            const modal = document.getElementById('upgrade-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function activatePremium() {
+            // 30일 프리미엄 활성화
+            const expiry = new Date();
+            expiry.setDate(expiry.getDate() + 30);
+            localStorage.setItem('premium_expiry', expiry.toISOString());
+            closeUpgradeModal();
+            updatePremiumBtn();
+            alert('🎉 프리미엄이 활성화되었습니다! (30일)');
+        }
+
+        function updatePremiumBtn() {
+            const btn = document.getElementById('premium-btn');
+            if (!btn) return;
+            if (isPremium()) {
+                btn.textContent = '✦ PRO';
+                btn.className = 'px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm transition-all';
+            } else {
+                btn.innerHTML = '⚡ 프리미엄';
+                btn.className = 'px-4 py-2 bg-amber-400 hover:bg-amber-500 text-white text-sm font-bold rounded-full flex items-center gap-1.5 shadow-sm transition-all';
+            }
+        }
+
+        // 로컬 스토리지에서 모드 복구
+        window.addEventListener('load', () => {
+            const savedMode = localStorage.getItem('selectedMode');
+            if (savedMode) modalMode = savedMode;
+        });
+
+        function goToApp(ticker) {
+            if (ticker && ticker.trim()) {
+                window.location.href = `/trading.html?ticker=${encodeURIComponent(ticker.trim().toUpperCase())}&autostart=true`;
+            } else {
+                window.location.href = '/trading.html';
+            }
+        }
+
+        // 자동완성 검색
+        async function searchStocks(query) {
+            if (!query || query.length < 1) {
+                const el = document.getElementById('search-results');
+                if (el) el.style.display = 'none';
+                return;
+            }
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
+                const data = await res.json();
+                searchResults = data.results || [];
+
+                const dropdown = document.getElementById('search-results');
+                if (dropdown && searchResults.length > 0) {
+                    dropdown.innerHTML = searchResults.map((stock, idx) => `
+                        <div onclick="selectStock('${stock.symbol}')" class="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm border-b border-slate-100">
+                            <span class="font-bold text-slate-900">${stock.symbol}</span>
+                            <span class="text-slate-500 ml-2">${stock.name && stock.name.trim() ? stock.name : stock.exchange || ''}</span>
+                        </div>
+                    `).join('');
+                    dropdown.style.display = 'block';
+                } else {
+                    dropdown.style.display = 'none';
+                }
+            } catch(e) {
+                console.log('Search error:', e);
+            }
+        }
+
+        function selectStock(ticker) {
+            document.getElementById('modal-ticker').value = ticker.toUpperCase();
+            document.getElementById('search-results').style.display = 'none';
+        }
+
+        function switchModalTab(tab) {
+            const tabTrade = document.getElementById('tab-trade');
+            const tabLogic = document.getElementById('tab-logic');
+            const contentTrade = document.getElementById('content-trade');
+            const contentLogic = document.getElementById('content-logic');
+
+            if (tabTrade) tabTrade.classList.remove('active');
+            if (tabLogic) tabLogic.classList.remove('active');
+            if (contentTrade) contentTrade.classList.add('hidden');
+            if (contentLogic) contentLogic.classList.add('hidden');
+
+            if (tab === 'trade') {
+                if (tabTrade) tabTrade.classList.add('active');
+                if (contentTrade) contentTrade.classList.remove('hidden');
+            } else {
+                if (tabLogic) tabLogic.classList.add('active');
+                if (contentLogic) contentLogic.classList.remove('hidden');
+            }
+        }
+
+        function selectMode(mode) {
+            modalMode = mode;
+            localStorage.setItem('selectedMode', mode);
+            const analysisBtn = document.querySelector('[data-mode="analysis"]');
+            const tradingBtn = document.querySelector('[data-mode="trading"]');
+
+            if (mode === 'analysis') {
+                if (analysisBtn) analysisBtn.classList.add('ring-2', 'ring-indigo-400', 'bg-indigo-100');
+                if (tradingBtn) tradingBtn.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-100');
+            } else {
+                if (tradingBtn) tradingBtn.classList.add('ring-2', 'ring-indigo-400', 'bg-slate-100');
+                if (analysisBtn) analysisBtn.classList.remove('ring-2', 'ring-indigo-400', 'bg-indigo-100');
+            }
+        }
+
+        function startAnalysis() {
+            const tickerInput = document.getElementById('modal-ticker');
+            const ticker = (tickerInput && tickerInput.value) ? tickerInput.value.trim().toUpperCase() : '';
+            if (!ticker) {
+                if (tickerInput) {
+                    tickerInput.focus();
+                    tickerInput.style.borderColor = '#ef4444';
+                    setTimeout(() => tickerInput.style.borderColor = '', 2000);
+                }
+                return;
+            }
+            if (!modalMode) {
+                alert('분석 모드를 선택해주세요');
+                return;
+            }
+            // 무료 횟수 체크
+            if (!checkAnalysisLimit()) return;
+            incrementCount();
+            saveAnalysisHistory(ticker, modalMode);  // 분석 기록 저장
+
+            localStorage.setItem('selectedMode', modalMode);
+            localStorage.setItem('selectedTicker', ticker);
+            if (modalMode === 'trading') {
+                window.location.href = `/trading.html?ticker=${encodeURIComponent(ticker)}&autostart=true`;
+            } else {
+                window.location.href = `/analysis.html?ticker=${encodeURIComponent(ticker)}&autostart=true`;
+            }
+        }
+
+        function goToAppWithMode(mode) {
+            selectMode(mode);
+        }
+
         const masterBots = [
             { id: 1, name: "윌리엄 오닐 AI", philosophy: "CAN SLIM", color: "bg-[#0A2647]", description: "CAN SLIM 방법론으로 주도주를 분석합니다. 트레이딩 모드와 분석 모드를 지원합니다.", ready: true },
             { id: 2, name: "워렌 버핏 AI", philosophy: "가치 투자", color: "bg-indigo-600", description: "내재 가치보다 낮은 가격의 주식을 찾습니다.", ready: false },
@@ -194,8 +504,9 @@
             { id: 6, name: "찰리 멍거 AI", philosophy: "격자모델", color: "bg-slate-700", description: "다학제적 접근으로 비즈니스를 평가합니다.", ready: false },
         ];
 
-        // ── 네비게이션 ────────────────────────────────
         function navigate(page) {
+            // 커뮤니티 탭 벗어나면 폴링 중지
+            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
             currentPage = page;
             document.querySelectorAll('.nav-item').forEach(el => {
                 if(el.dataset.page === page) {
@@ -206,11 +517,10 @@
             });
             if (page === '홈') renderHome();
             else if (page === '커뮤') renderCommunity();
-            else if (page === '커스텀AI') renderCustomAI();
+            else if (page === '스크리너') renderScreener();
             else renderPlaceholder(page);
         }
 
-        // ── 홈 화면 ──────────────────────────────────
         function renderHome() {
             document.getElementById('content').innerHTML = `
                 <div class="max-w-7xl mx-auto">
@@ -240,269 +550,125 @@
             lucide.createIcons();
         }
 
-        // ── 봇 모달 (오닐=탭 포함 넓은 모달) ─────────
         function openBotModal(id) {
             const bot = masterBots.find(b => b.id === id);
             const modal = document.getElementById('modal');
-            const box = document.getElementById('modal-box');
+            // 저장된 모드 복구, 없으면 null
+            modalMode = localStorage.getItem('selectedMode') || null;
 
-            if (bot.ready) {
-                // 오닐 봇: 넓은 모달 + 탭
-                box.className = 'bg-white rounded-3xl max-w-4xl w-full shadow-2xl relative border border-slate-100 transition-all';
+            if (!bot.ready) {
                 document.getElementById('modal-content').innerHTML = `
-                    <div class="flex border-b border-slate-200">
-                        <button onclick="switchModalTab('analyze')" id="tab-analyze" class="flex-1 py-4 text-sm font-bold text-center border-b-2 border-indigo-600 text-indigo-600 transition-all">종목 분석</button>
-                        <button onclick="switchModalTab('logic')" id="tab-logic" class="flex-1 py-4 text-sm font-bold text-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all">분석 로직 소개</button>
-                    </div>
-                    <div id="modal-tab-content" class="p-8"></div>
-                `;
-                switchModalTab('analyze');
-            } else {
-                // 미완성 봇: 기존 작은 모달
-                box.className = 'bg-white rounded-3xl max-w-lg w-full p-10 shadow-2xl relative border border-slate-100 transition-all';
-                document.getElementById('modal-content').innerHTML = `
-                    <div class="w-24 h-32 ${bot.color} rounded-xl mb-6 mx-auto shadow-xl"></div>
-                    <h3 class="text-2xl font-bold text-slate-900 text-center mb-2">${bot.name}</h3>
-                    <p class="text-indigo-600 text-center font-bold mb-4">${bot.philosophy}</p>
-                    <p class="text-slate-500 text-center leading-relaxed mb-8">${bot.description}</p>
-                    <button disabled class="w-full bg-slate-200 text-slate-400 py-4 rounded-2xl font-bold cursor-not-allowed">
-                        준비 중입니다
-                    </button>
-                `;
-            }
-            modal.style.display = 'flex';
-            lucide.createIcons();
-        }
-
-        function switchModalTab(tab) {
-            const tabAnalyze = document.getElementById('tab-analyze');
-            const tabLogic = document.getElementById('tab-logic');
-            const content = document.getElementById('modal-tab-content');
-
-            if (tab === 'analyze') {
-                tabAnalyze.className = 'flex-1 py-4 text-sm font-bold text-center border-b-2 border-indigo-600 text-indigo-600 transition-all';
-                tabLogic.className = 'flex-1 py-4 text-sm font-bold text-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all';
-                content.innerHTML = `
-                    <div class="flex gap-6 items-start">
-                        <div class="w-20 h-28 bg-[#0A2647] rounded-xl shadow-xl shrink-0 hidden sm:block"></div>
-                        <div class="flex-1">
-                            <h3 class="text-2xl font-bold text-slate-900 mb-1">윌리엄 오닐 AI</h3>
-                            <p class="text-indigo-600 font-bold text-sm mb-3">CAN SLIM</p>
-                            <p class="text-slate-500 text-sm leading-relaxed mb-6">CAN SLIM 방법론으로 주도주를 분석합니다. 종목명이나 티커를 검색하세요.</p>
-                        </div>
-                    </div>
-                    <div class="space-y-4 mt-4">
-                        <div class="relative">
-                            <div class="flex items-center border border-slate-200 rounded-xl px-4 py-3 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all bg-white">
-                                <i data-lucide="search" class="w-4 h-4 text-slate-400 shrink-0"></i>
-                                <input type="text" id="modal-ticker" class="flex-1 border-none outline-none px-3 text-sm bg-transparent"
-                                    placeholder="종목명 또는 티커 검색 (예: 삼성전자, Apple, NVDA)"
-                                    oninput="onSearchInput(this.value, 'modal-search-results')"
-                                    onkeydown="onModalSearchKeydown(event)"
-                                    onfocus="if(this.value.length>=1) onSearchInput(this.value, 'modal-search-results')"
-                                    autocomplete="off">
-                            </div>
-                            <div id="modal-search-results" class="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl border border-slate-200 shadow-xl z-50 hidden search-dropdown"></div>
-                        </div>
-                        <div>
-                            <p class="text-sm font-bold text-slate-500 mb-2">분석 모드 선택</p>
-                            <div class="grid grid-cols-2 gap-3">
-                                <button onclick="goToAppWithMode('analysis')" class="border-2 border-indigo-200 bg-indigo-50 text-indigo-700 py-4 rounded-2xl font-bold hover:bg-indigo-100 hover:border-indigo-400 transition-all text-center">
-                                    <div class="text-lg mb-1">분석 모드</div>
-                                    <div class="text-xs text-indigo-400">펀더멘털 + AI 리포트</div>
-                                </button>
-                                <button onclick="goToAppWithMode('trading')" class="border-2 border-slate-200 bg-slate-50 text-slate-700 py-4 rounded-2xl font-bold hover:bg-slate-100 hover:border-slate-400 transition-all text-center">
-                                    <div class="text-lg mb-1">트레이딩 모드</div>
-                                    <div class="text-xs text-slate-400">차트 패턴 + AI 분석</div>
-                                </button>
-                            </div>
-                        </div>
+                    <div class="text-center py-12">
+                        <div class="w-24 h-32 ${bot.color} rounded-xl mb-6 mx-auto shadow-xl"></div>
+                        <h3 class="text-2xl font-bold text-slate-900 mb-2">${bot.name}</h3>
+                        <p class="text-slate-500 mb-6">준비 중입니다</p>
                     </div>
                 `;
-            } else {
-                tabLogic.className = 'flex-1 py-4 text-sm font-bold text-center border-b-2 border-indigo-600 text-indigo-600 transition-all';
-                tabAnalyze.className = 'flex-1 py-4 text-sm font-bold text-center border-b-2 border-transparent text-slate-400 hover:text-slate-600 transition-all';
-                content.innerHTML = `
-                    <div class="mb-6">
-                        <div class="flex justify-center gap-3 mb-6">
-                            <button onclick="showModeDetail('analysis')" id="btn-mode-analysis" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-200">분석 모드</button>
-                            <button onclick="showModeDetail('trading')" id="btn-mode-trading" class="px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-white text-slate-500 border border-slate-200 hover:bg-slate-50">트레이딩 모드</button>
-                        </div>
-                        <div id="mode-detail-content"></div>
-                    </div>
-                `;
-                showModeDetail('analysis');
-            }
-            lucide.createIcons();
-        }
-
-        function onModalSearchKeydown(e) {
-            if (e.key === 'Enter' && selectedSearchIdx < 0 && e.target.value.trim()) {
-                // Enter 누르면 검색 결과 없어도 그대로 진행
-                document.getElementById('modal-search-results').classList.add('hidden');
+                modal.style.display = 'flex';
                 return;
             }
-            onSearchKeydown(e, 'modal-search-results');
-        }
 
-        // ── 모드 상세 설명 ───────────────────────────
-        function showModeDetail(mode) {
-            const btnA = document.getElementById('btn-mode-analysis');
-            const btnT = document.getElementById('btn-mode-trading');
-            if (btnA && btnT) {
-                if (mode === 'analysis') {
-                    btnA.className = 'px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-indigo-600 text-white shadow-lg shadow-indigo-200';
-                    btnT.className = 'px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-white text-slate-500 border border-slate-200 hover:bg-slate-50';
-                } else {
-                    btnT.className = 'px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-slate-800 text-white shadow-lg shadow-slate-300';
-                    btnA.className = 'px-5 py-2.5 rounded-xl text-sm font-bold transition-all bg-white text-slate-500 border border-slate-200 hover:bg-slate-50';
+            // 탭 구조
+            document.getElementById('modal-content').innerHTML = `
+                <div class="w-24 h-32 ${bot.color} rounded-xl mb-6 mx-auto shadow-xl"></div>
+                <h3 class="text-2xl font-bold text-slate-900 text-center mb-1">${bot.name}</h3>
+                <p class="text-indigo-600 text-center font-bold mb-6">${bot.philosophy}</p>
+
+                <!-- 탭 버튼 -->
+                <div class="flex gap-2 mb-6 border-b border-slate-200">
+                    <button id="tab-trade" class="active flex-1 py-3 px-4 font-bold text-slate-700 border-b-2 border-indigo-600 text-center" onclick="switchModalTab('trade')">
+                        종목 분석
+                    </button>
+                    <button id="tab-logic" class="flex-1 py-3 px-4 font-bold text-slate-500 text-center" onclick="switchModalTab('logic')">
+                        분석 로직 소개
+                    </button>
+                </div>
+
+                <!-- 탭1: 종목 분석 -->
+                <div id="content-trade" class="space-y-4">
+                    <div class="relative">
+                        <input type="text" id="modal-ticker" class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" placeholder="종목명 또는 코드 (예: AAPL, 삼성전자, SK Hynix)" oninput="searchStocks(this.value)">
+                        <div id="search-results" class="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto z-50 hidden"></div>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-bold text-slate-600 mb-3">분석 모드 선택</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button onclick="selectMode('analysis')" data-mode="analysis" class="border-2 border-slate-200 bg-slate-50 text-indigo-700 py-4 rounded-2xl font-bold hover:bg-slate-100 transition-all text-center cursor-pointer">
+                                <div class="text-lg mb-1">📊 분석 모드</div>
+                                <div class="text-xs text-indigo-400">CAN SLIM 펀더멘털</div>
+                            </button>
+                            <button onclick="selectMode('trading')" data-mode="trading" class="border-2 border-slate-200 bg-slate-50 text-slate-700 py-4 rounded-2xl font-bold hover:bg-slate-100 transition-all text-center cursor-pointer">
+                                <div class="text-lg mb-1">📈 트레이딩 모드</div>
+                                <div class="text-xs text-slate-400">차트 기술 분석</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button onclick="startAnalysis()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transition-all">
+                        분석 시작 🚀
+                    </button>
+                </div>
+
+                <!-- 탭2: 분석 로직 소개 -->
+                <div id="content-logic" class="hidden space-y-4 max-h-96 overflow-y-auto">
+                    <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4">
+                        <h4 class="font-bold text-indigo-900 mb-2">📊 분석 모드 — CAN SLIM 펀더멘털 분석</h4>
+                        <p class="text-sm text-indigo-700 mb-3">윌리엄 오닐의 CAN SLIM 방법론에 따라 7가지 핵심 지표를 종합 분석합니다.</p>
+                        <ul class="text-xs text-indigo-700 space-y-1 ml-3">
+                            <li><strong>C:</strong> Current Earnings - 현재분기 수익 성장</li>
+                            <li><strong>A:</strong> Annual Growth - 연간 수익 성장률</li>
+                            <li><strong>N:</strong> New Catalysts - 신제품/신서비스/신경영</li>
+                            <li><strong>S:</strong> Supply/Demand - 주식 수급과 거래량</li>
+                            <li><strong>L:</strong> Leader/Laggard - 업계 내 선도주 여부</li>
+                            <li><strong>I:</strong> Institutional Buying - 기관투자자 매수</li>
+                            <li><strong>M:</strong> Market Trends - 시장 전반 추세</li>
+                        </ul>
+                        <p class="text-xs text-indigo-600 mt-3">📈 결과: 각 항목별 점수 카드 + AI 최종 판정</p>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                        <h4 class="font-bold text-slate-900 mb-2">📈 트레이딩 모드 — 차트 기술 분석</h4>
+                        <p class="text-sm text-slate-700 mb-3">오닐의 기술 분석 기법으로 주가 차트 패턴을 인식하고 매매 신호를 제시합니다.</p>
+                        <ul class="text-xs text-slate-700 space-y-1 ml-3">
+                            <li><strong>패턴:</strong> Cup & Handle, Double Bottom, Breakout</li>
+                            <li><strong>이동평균선:</strong> 50일선, 200일선, 가격 위치</li>
+                            <li><strong>거래량:</strong> 돌파 시 거래량 증가 확인</li>
+                            <li><strong>RS 레이팅:</strong> 상대강도지수 분석</li>
+                            <li><strong>피봇 포인트:</strong> 지지선/저항선 레벨</li>
+                        </ul>
+                        <p class="text-xs text-slate-600 mt-3">📊 결과: 차트 분석 리포트 + 매매 타이밍 + 패턴 강도 점수</p>
+                    </div>
+                </div>
+            `;
+
+            modal.style.display = 'flex';
+            // 모달이 열린 후 입력창에 포커스 및 저장된 모드 복구
+            setTimeout(() => {
+                const ticker = document.getElementById('modal-ticker');
+                if (ticker) ticker.focus();
+                // 저장된 모드 복구
+                if (modalMode) {
+                    selectMode(modalMode);
                 }
-            }
-            const container = document.getElementById('mode-detail-content');
-            if (!container) return;
-
-            if (mode === 'analysis') {
-                container.innerHTML = `
-                    <div class="grid md:grid-cols-2 gap-6">
-                        <div>
-                            <h4 class="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
-                                <span class="w-6 h-6 bg-indigo-600 text-white rounded-md flex items-center justify-center text-xs">1</span>
-                                데이터 수집 — CAN SLIM 7개 팩터
-                            </h4>
-                            <div class="space-y-2.5">
-                                ${[
-                                    {letter:'C', title:'Current Earnings', desc:'분기 EPS YoY, 매출 성장률, 가속/감속'},
-                                    {letter:'A', title:'Annual Earnings', desc:'5년 순이익, ROE, P/E, 이익률'},
-                                    {letter:'N', title:'New Catalyst', desc:'신제품, 경영진 변화, 52주 신고가'},
-                                    {letter:'S', title:'Supply & Demand', desc:'시총, 부채비율, 자사주 매입'},
-                                    {letter:'L', title:'Leader/Laggard', desc:'RS Rating, 벤치마크 대비 성과'},
-                                    {letter:'I', title:'Institutional', desc:'기관 보유 비율, 기관 투자자 수'},
-                                    {letter:'M', title:'Market Direction', desc:'S&P500/KOSPI 추세, 분배일수'}
-                                ].map(f => `
-                                    <div class="flex gap-2.5 items-start">
-                                        <span class="w-6 h-6 bg-indigo-50 text-indigo-700 rounded flex items-center justify-center text-xs font-black shrink-0 mt-0.5">${f.letter}</span>
-                                        <div>
-                                            <span class="text-xs font-bold text-slate-800">${f.title}</span>
-                                            <span class="text-xs text-slate-400 ml-1">${f.desc}</span>
-                                        </div>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        <div>
-                            <h4 class="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
-                                <span class="w-6 h-6 bg-indigo-600 text-white rounded-md flex items-center justify-center text-xs">2</span>
-                                AI 분석 — Gemini + O'Neil RAG
-                            </h4>
-                            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-5 border border-indigo-100 mb-4">
-                                <ul class="space-y-2 text-sm text-slate-600">
-                                    <li class="flex gap-2"><span class="text-indigo-400 font-bold">1.</span> 7개 팩터 원시 데이터를 AI에 전달</li>
-                                    <li class="flex gap-2"><span class="text-indigo-400 font-bold">2.</span> O'Neil 저서 원문 규칙 함께 제공</li>
-                                    <li class="flex gap-2"><span class="text-indigo-400 font-bold">3.</span> AI가 각 팩터별 PASS/FAIL 직접 판정</li>
-                                    <li class="flex gap-2"><span class="text-indigo-400 font-bold">4.</span> 종합 투자 의견 + 리포트 생성</li>
-                                </ul>
-                            </div>
-                            <div class="bg-white rounded-xl p-4 border border-slate-200">
-                                <div class="text-[10px] font-black text-slate-400 mb-2">OUTPUT 예시</div>
-                                <div class="space-y-1.5 text-xs text-slate-500">
-                                    <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> C: EPS YoY +68.5% — PASS</div>
-                                    <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> A: ROE 32.1%, 3년 연속 성장 — PASS</div>
-                                    <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span> L: RS Rating 72/99 — BORDERLINE</div>
-                                    <div class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-rose-400 rounded-full"></span> M: Distribution Day 5일 — FAIL</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                container.innerHTML = `
-                    <div class="grid md:grid-cols-3 gap-4 mb-4">
-                        <div class="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                            <div class="flex items-center gap-2 mb-3">
-                                <span class="w-5 h-5 bg-slate-800 text-white rounded flex items-center justify-center text-[10px] font-bold">1</span>
-                                <h4 class="text-xs font-black text-slate-900">데이터 수집</h4>
-                            </div>
-                            <ul class="space-y-1.5 text-xs text-slate-500">
-                                <li>3년 주봉 OHLCV (yfinance)</li>
-                                <li>10주/40주 이동평균선</li>
-                                <li>S&P500 대비 RS 산출</li>
-                                <li>거래량 Accumulation/Distribution</li>
-                            </ul>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                            <div class="flex items-center gap-2 mb-3">
-                                <span class="w-5 h-5 bg-slate-800 text-white rounded flex items-center justify-center text-[10px] font-bold">2</span>
-                                <h4 class="text-xs font-black text-slate-900">패턴 탐지 엔진</h4>
-                            </div>
-                            <ul class="space-y-1.5 text-xs text-slate-500">
-                                <li><strong>Cup with Handle</strong> 7~65주</li>
-                                <li><strong>Double Bottom</strong> W자형</li>
-                                <li><strong>Flat Base</strong> 고저차 15%이내</li>
-                                <li><strong>Ascending Base</strong> 3회 pullback</li>
-                                <li>Base Stage + Fault 감지</li>
-                            </ul>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                            <div class="flex items-center gap-2 mb-3">
-                                <span class="w-5 h-5 bg-slate-800 text-white rounded flex items-center justify-center text-[10px] font-bold">3</span>
-                                <h4 class="text-xs font-black text-slate-900">AI 종합 판단</h4>
-                            </div>
-                            <ul class="space-y-1.5 text-xs text-slate-500">
-                                <li>O'Neil 스타일 차트 생성</li>
-                                <li>차트+데이터 → Gemini AI</li>
-                                <li>추세/패턴/거래량 분석</li>
-                                <li>손절 7-8% + Risk/Reward</li>
-                                <li class="font-bold text-slate-700">BUY / WATCH / AVOID</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl p-4 text-white">
-                        <div class="flex flex-wrap items-center justify-center gap-3 text-xs">
-                            <span>차트 생성</span><span class="text-slate-500">→</span>
-                            <span>패턴 자동 탐지</span><span class="text-slate-500">→</span>
-                            <span>AI 검증+해석</span><span class="text-slate-500">→</span>
-                            <span class="font-bold text-amber-300">매매 판정</span>
-                        </div>
-                    </div>
-                `;
-            }
-            lucide.createIcons();
+            }, 100);
         }
 
         function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-        // ── 커뮤니티 투표 (서버 API 기반) ─────────────
-        // 브라우저 세션 ID (동일 브라우저에서 중복 투표 방지)
-        function getSessionId() {
-            let sid = localStorage.getItem('orion_session_id');
-            if (!sid) { sid = 'u_' + Math.random().toString(36).substring(2, 12); localStorage.setItem('orion_session_id', sid); }
-            return sid;
-        }
-        const SESSION_ID = getSessionId();
+        // ── 커뮤니티 투표 시스템 ──────────────────────────────
+        let communityPolls = {};
+        let userVotes = {};
+        let pollInterval = null;  // 실시간 폴링 타이머
+        let isAdminMode = false;
+        const ADMIN_KEY = 'oneil2026';
+        const SESSION_ID = localStorage.getItem('sessionId') || (() => {
+            const id = 'sess_' + Math.random().toString(36).slice(2, 10);
+            localStorage.setItem('sessionId', id);
+            return id;
+        })();
 
-        // 초기 시드 데이터 (서버에 없으면 자동 등록)
-        const defaultSeedPolls = [
-            { ticker: 'NVDA', name: 'NVIDIA Corp', analyst: '윌리엄 오닐 AI', verdict: 'BUY NOW', date: '2026-02-17', bullish: 142, neutral: 38, bearish: 21 },
-            { ticker: 'AAPL', name: 'Apple Inc', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-16', bullish: 89, neutral: 67, bearish: 45 },
-            { ticker: '005930.KS', name: '삼성전자', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-15', bullish: 76, neutral: 52, bearish: 31 },
-            { ticker: 'TSLA', name: 'Tesla Inc', analyst: '윌리엄 오닐 AI', verdict: 'AVOID', date: '2026-02-14', bullish: 55, neutral: 30, bearish: 98 },
-            { ticker: 'MSFT', name: 'Microsoft Corp', analyst: '윌리엄 오닐 AI', verdict: 'BUY NOW', date: '2026-02-13', bullish: 128, neutral: 41, bearish: 18 },
-            { ticker: 'AMZN', name: 'Amazon.com Inc', analyst: '윌리엄 오닐 AI', verdict: 'WATCH & WAIT', date: '2026-02-12', bullish: 95, neutral: 58, bearish: 34 },
-        ];
-
-        let _cachedPolls = {};
-        let _cachedUserVotes = {};
-
-        async function seedPollsIfNeeded() {
-            try {
-                await fetch('/api/community/seed', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ items: defaultSeedPolls })
-                });
-            } catch(e) { console.warn('Seed failed:', e); }
-        }
-
-        async function fetchPolls() {
+        async function loadPolls() {
             try {
                 const [pollsRes, votesRes] = await Promise.all([
                     fetch('/api/community/polls'),
@@ -510,124 +676,532 @@
                 ]);
                 const pollsData = await pollsRes.json();
                 const votesData = await votesRes.json();
-                _cachedPolls = pollsData.polls || {};
-                _cachedUserVotes = votesData.votes || {};
-            } catch(e) {
-                console.warn('Fetch polls failed:', e);
+                communityPolls = pollsData.polls || {};
+                userVotes = votesData.votes || {};
+            } catch (e) {
+                console.log('Polls load error:', e);
             }
+        }
+
+        async function seedDefaultPolls() {
+            const defaults = [
+                { ticker: "AAPL", name: "Apple Inc.", analyst: "윌리엄 오닐 AI", verdict: "WATCH & WAIT", date: "2026-02-19", bullish: 12, neutral: 5, bearish: 3 },
+                { ticker: "NVDA", name: "NVIDIA Corp.", analyst: "윌리엄 오닐 AI", verdict: "BUY NOW", date: "2026-02-19", bullish: 28, neutral: 4, bearish: 2 },
+                { ticker: "TSLA", name: "Tesla Inc.", analyst: "윌리엄 오닐 AI", verdict: "AVOID", date: "2026-02-18", bullish: 8, neutral: 6, bearish: 15 },
+                { ticker: "MSFT", name: "Microsoft Corp.", analyst: "윌리엄 오닐 AI", verdict: "WATCH & WAIT", date: "2026-02-18", bullish: 15, neutral: 10, bearish: 3 },
+                { ticker: "005930.KS", name: "삼성전자", analyst: "윌리엄 오닐 AI", verdict: "WATCH & WAIT", date: "2026-02-17", bullish: 20, neutral: 8, bearish: 5 },
+                { ticker: "GOOGL", name: "Alphabet Inc.", analyst: "윌리엄 오닐 AI", verdict: "BUY NOW", date: "2026-02-17", bullish: 18, neutral: 7, bearish: 2 },
+            ];
+            try {
+                await fetch('/api/community/seed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: defaults })
+                });
+            } catch (e) { console.log('Seed error:', e); }
         }
 
         async function castVote(ticker, voteType) {
             try {
                 const res = await fetch('/api/community/vote', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ticker, vote_type: voteType, session_id: SESSION_ID })
                 });
                 const data = await res.json();
-                _cachedPolls = data.polls || _cachedPolls;
-                _cachedUserVotes[ticker] = data.user_vote || null;
-                if (!data.user_vote) delete _cachedUserVotes[ticker];
-                renderCommunityUI();
-            } catch(e) { console.error('Vote failed:', e); }
+                communityPolls = data.polls || communityPolls;
+                // 유저 투표 상태 업데이트
+                if (data.user_vote) {
+                    userVotes[ticker] = data.user_vote;
+                } else {
+                    delete userVotes[ticker];
+                }
+                renderCommunityCards();
+            } catch (e) {
+                console.log('Vote error:', e);
+            }
+        }
+
+        function getVerdictStyle(verdict) {
+            const map = {
+                "BUY NOW": { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", badge: "bg-emerald-600" },
+                "WATCH & WAIT": { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", badge: "bg-amber-500" },
+                "AVOID": { bg: "bg-red-50", border: "border-red-200", text: "text-red-700", badge: "bg-red-600" },
+            };
+            return map[verdict] || map["WATCH & WAIT"];
+        }
+
+        function renderCommunityCards() {
+            const grid = document.getElementById('community-grid');
+            if (!grid) return;
+
+            const entries = Object.entries(communityPolls).sort((a, b) => {
+                const totalA = (a[1].bullish || 0) + (a[1].neutral || 0) + (a[1].bearish || 0);
+                const totalB = (b[1].bullish || 0) + (b[1].neutral || 0) + (b[1].bearish || 0);
+                return totalB - totalA;
+            });
+
+            if (entries.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">아직 분석된 종목이 없습니다. 먼저 종목을 분석해보세요!</div>';
+                return;
+            }
+
+            grid.innerHTML = entries.map(([ticker, poll]) => {
+                const total = (poll.bullish || 0) + (poll.neutral || 0) + (poll.bearish || 0);
+                const bullPct = total > 0 ? Math.round((poll.bullish || 0) / total * 100) : 0;
+                const neutPct = total > 0 ? Math.round((poll.neutral || 0) / total * 100) : 0;
+                const bearPct = total > 0 ? Math.round((poll.bearish || 0) / total * 100) : 0;
+                const vs = getVerdictStyle(poll.verdict || "WATCH & WAIT");
+                const myVote = userVotes[ticker] || null;
+
+                return `
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg transition-shadow">
+                    <!-- 종목 헤더 -->
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
+                                <span class="text-indigo-700 font-black text-sm">${ticker.slice(0, 2)}</span>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-slate-900 text-sm">${ticker}</h3>
+                                <p class="text-xs text-slate-400">${poll.name || ''}</p>
+                            </div>
+                        </div>
+                        <span class="${vs.badge} text-white text-[10px] font-bold px-2.5 py-1 rounded-full">${poll.verdict || '—'}</span>
+                    </div>
+
+                    <!-- AI 분석가 -->
+                    <div class="flex items-center gap-2 mb-3 text-xs text-slate-500">
+                        <div class="w-4 h-4 bg-slate-200 rounded-full flex items-center justify-center">
+                            <span class="text-[8px] font-bold">AI</span>
+                        </div>
+                        <span>${poll.analyst || '윌리엄 오닐 AI'}</span>
+                        <span class="text-slate-300">·</span>
+                        <span>${poll.date || ''}</span>
+                    </div>
+
+                    <!-- 투표 바 -->
+                    <div class="flex rounded-full overflow-hidden h-2.5 bg-slate-100 mb-3">
+                        <div class="bg-emerald-500 transition-all" style="width:${bullPct}%"></div>
+                        <div class="bg-amber-400 transition-all" style="width:${neutPct}%"></div>
+                        <div class="bg-red-500 transition-all" style="width:${bearPct}%"></div>
+                    </div>
+
+                    <!-- 투표 버튼 -->
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="castVote('${ticker}', 'bullish')"
+                            class="py-2 rounded-xl text-xs font-bold transition-all border-2 ${myVote === 'bullish' ? 'bg-emerald-100 border-emerald-400 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-emerald-300 hover:bg-emerald-50'}">
+                            📈 낙관 <span class="block text-[10px] mt-0.5 opacity-70">${poll.bullish || 0}표 (${bullPct}%)</span>
+                        </button>
+                        <button onclick="castVote('${ticker}', 'neutral')"
+                            class="py-2 rounded-xl text-xs font-bold transition-all border-2 ${myVote === 'neutral' ? 'bg-amber-100 border-amber-400 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-amber-300 hover:bg-amber-50'}">
+                            ⏸️ 관망 <span class="block text-[10px] mt-0.5 opacity-70">${poll.neutral || 0}표 (${neutPct}%)</span>
+                        </button>
+                        <button onclick="castVote('${ticker}', 'bearish')"
+                            class="py-2 rounded-xl text-xs font-bold transition-all border-2 ${myVote === 'bearish' ? 'bg-red-100 border-red-400 text-red-700' : 'bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:bg-red-50'}">
+                            📉 비관 <span class="block text-[10px] mt-0.5 opacity-70">${poll.bearish || 0}표 (${bearPct}%)</span>
+                        </button>
+                    </div>
+
+                    <!-- 분석 바로가기 -->
+                    <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
+                        <button onclick="window.location.href='/trading.html?ticker=${encodeURIComponent(ticker)}&autostart=true'"
+                            class="flex-1 text-xs text-indigo-600 font-bold py-1.5 rounded-lg hover:bg-indigo-50 transition-all">
+                            📈 트레이딩 분석
+                        </button>
+                        <button onclick="window.location.href='/analysis.html?ticker=${encodeURIComponent(ticker)}&autostart=true'"
+                            class="flex-1 text-xs text-indigo-600 font-bold py-1.5 rounded-lg hover:bg-indigo-50 transition-all">
+                            📊 펀더멘털 분석
+                        </button>
+                    </div>
+
+                    <!-- 관리자 버튼 -->
+                    ${isAdminMode ? `
+                    <div class="mt-2 pt-2 border-t border-red-100 flex gap-2">
+                        <button onclick="adminResetVotes('${ticker}')"
+                            class="flex-1 text-[10px] text-amber-600 font-bold py-1 rounded-lg bg-amber-50 hover:bg-amber-100 transition-all">
+                            투표 초기화
+                        </button>
+                        <button onclick="adminDeleteTicker('${ticker}')"
+                            class="flex-1 text-[10px] text-red-600 font-bold py-1 rounded-lg bg-red-50 hover:bg-red-100 transition-all">
+                            종목 삭제
+                        </button>
+                    </div>` : ''}
+
+                    <!-- 총 투표수 -->
+                    <p class="text-center text-[10px] text-slate-300 mt-2">${total}명 참여</p>
+                </div>
+                `;
+            }).join('');
+
+            // 관리자 모드일 때 전체 초기화 버튼 표시
+            const resetAllBtn = document.getElementById('admin-reset-all');
+            if (resetAllBtn) resetAllBtn.style.display = isAdminMode ? 'inline-block' : 'none';
+        }
+
+        // ── 관리자 기능 ──────────────────────────────
+        function toggleAdmin() {
+            isAdminMode = !isAdminMode;
+            const btn = document.getElementById('admin-toggle');
+            if (btn) {
+                btn.textContent = isAdminMode ? '관리자 모드 OFF' : '관리자 모드';
+                btn.className = isAdminMode
+                    ? 'px-4 py-2 rounded-xl text-xs font-bold bg-red-100 text-red-600 border-2 border-red-300'
+                    : 'px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-transparent';
+            }
+            renderCommunityCards();
+        }
+
+        async function adminDeleteTicker(ticker) {
+            if (!confirm(`"${ticker}" 종목을 삭제하시겠습니까?`)) return;
+            try {
+                const res = await fetch(`/api/community/ticker/${encodeURIComponent(ticker)}?admin_key=${ADMIN_KEY}`, { method: 'DELETE' });
+                if (res.ok) {
+                    delete communityPolls[ticker];
+                    renderCommunityCards();
+                } else {
+                    alert('삭제 실패: ' + (await res.json()).detail);
+                }
+            } catch (e) { alert('오류: ' + e.message); }
+        }
+
+        async function adminResetVotes(ticker) {
+            if (!confirm(`"${ticker}" 투표를 초기화하시겠습니까?`)) return;
+            try {
+                const res = await fetch(`/api/community/reset_votes/${encodeURIComponent(ticker)}?admin_key=${ADMIN_KEY}`, { method: 'POST' });
+                if (res.ok) {
+                    if (communityPolls[ticker]) {
+                        communityPolls[ticker].bullish = 0;
+                        communityPolls[ticker].neutral = 0;
+                        communityPolls[ticker].bearish = 0;
+                    }
+                    delete userVotes[ticker];
+                    renderCommunityCards();
+                } else {
+                    alert('초기화 실패: ' + (await res.json()).detail);
+                }
+            } catch (e) { alert('오류: ' + e.message); }
+        }
+
+        async function adminResetAll() {
+            if (!confirm('전체 투표 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+            try {
+                const res = await fetch('/api/community/reset_all', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_key: ADMIN_KEY })
+                });
+                if (res.ok) {
+                    communityPolls = {};
+                    userVotes = {};
+                    renderCommunityCards();
+                } else {
+                    alert('초기화 실패');
+                }
+            } catch (e) { alert('오류: ' + e.message); }
+        }
+
+        // ── 실시간 폴링 시작/중지 ──────────────────────
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            pollInterval = setInterval(async () => {
+                await loadPolls();
+                renderCommunityCards();
+            }, 5000);
         }
 
         async function renderCommunity() {
-            // 로딩 표시
+            isAdminMode = false;
             document.getElementById('content').innerHTML = `
-                <div class="max-w-5xl mx-auto text-center py-20">
-                    <div class="animate-spin w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full mx-auto mb-4"></div>
-                    <p class="text-slate-400">투표 데이터 불러오는 중...</p>
-                </div>`;
-            await seedPollsIfNeeded();
-            await fetchPolls();
-            renderCommunityUI();
+                <div class="max-w-6xl mx-auto">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-extrabold text-slate-900 mb-2">커뮤니티 투표</h2>
+                        <p class="text-slate-500">AI가 분석한 종목에 대해 여러분의 의견을 투표해주세요</p>
+                        <p class="text-xs text-slate-300 mt-1">5초마다 자동 갱신됩니다</p>
+                    </div>
+
+                    <!-- 관리자 컨트롤 -->
+                    <div class="flex justify-end gap-2 mb-4">
+                        <button id="admin-toggle" onclick="toggleAdmin()"
+                            class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 border-2 border-transparent">
+                            관리자 모드
+                        </button>
+                        <button id="admin-reset-all" onclick="adminResetAll()" style="display:none"
+                            class="px-4 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-500 hover:bg-red-100 border-2 border-red-200">
+                            전체 초기화
+                        </button>
+                    </div>
+
+                    <!-- 투표 카드 그리드 -->
+                    <div id="community-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <div class="col-span-full text-center py-12">
+                            <div class="inline-block w-8 h-8 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <p class="text-slate-400 mt-3 text-sm">투표 데이터 로딩 중...</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+
+            // 시드 데이터 등록 → 투표 데이터 로드 → 렌더링
+            await seedDefaultPolls();
+            await loadPolls();
+            renderCommunityCards();
+
+            // 실시간 폴링 시작
+            startPolling();
         }
 
-        function renderCommunityUI() {
-            const polls = _cachedPolls;
-            const userVotes = _cachedUserVotes;
+        // ── 스크리너 상태 ─────────────────────────────────
+        let screenerResults = [];
+        let screenerLoading = false;
 
-            // 종목 정렬 (투표 합산 내림차순)
-            const sortedTickers = Object.keys(polls).sort((a, b) => {
-                const ta = (polls[a].bullish||0) + (polls[a].neutral||0) + (polls[a].bearish||0);
-                const tb = (polls[b].bullish||0) + (polls[b].neutral||0) + (polls[b].bearish||0);
-                return tb - ta;
-            });
-
+        async function renderScreener() {
             document.getElementById('content').innerHTML = `
-                <div class="max-w-5xl mx-auto">
-                    <div class="text-center mb-10">
-                        <h2 class="text-3xl font-extrabold text-slate-900 mb-2">AI 분석 종목 투표</h2>
-                        <p class="text-slate-400">투자 대가 AI가 분석한 종목에 대한 커뮤니티의 의견을 확인하세요.</p>
+                <div class="max-w-6xl mx-auto">
+                    <!-- 헤더 -->
+                    <div class="mb-6">
+                        <h2 class="text-3xl font-extrabold text-slate-900 mb-1">CAN SLIM 종목 스크리너</h2>
+                        <p class="text-slate-500 text-sm">William O'Neil의 7가지 기준으로 유망 종목을 자동 발굴합니다</p>
                     </div>
-                    <div class="space-y-4">
-                        ${sortedTickers.map(ticker => {
-                            const poll = polls[ticker];
-                            const bull = poll.bullish || 0, neutral = poll.neutral || 0, bear = poll.bearish || 0;
-                            const total = bull + neutral + bear;
-                            const bullPct = total > 0 ? Math.round(bull / total * 100) : 0;
-                            const neutralPct = total > 0 ? Math.round(neutral / total * 100) : 0;
-                            const bearPct = total > 0 ? 100 - bullPct - neutralPct : 0;
-                            const myVote = userVotes[ticker] || null;
-                            const verdict = poll.verdict || '';
-                            const vc = verdict.includes('BUY') ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : verdict.includes('AVOID') ? 'text-rose-600 bg-rose-50 border-rose-200' : 'text-amber-600 bg-amber-50 border-amber-200';
-                            return `
-                            <div class="bg-white rounded-2xl border border-slate-200 p-6 hover:shadow-md transition-shadow">
-                                <div class="flex flex-col md:flex-row md:items-center gap-4">
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-3 mb-2">
-                                            <span class="text-lg font-black text-slate-900">${ticker}</span>
-                                            <span class="text-sm text-slate-400">${poll.name || ''}</span>
-                                            ${verdict ? `<span class="text-xs px-2 py-0.5 rounded-full border font-bold ${vc}">${verdict}</span>` : ''}
-                                        </div>
-                                        <div class="flex items-center gap-2 text-xs text-slate-400">
-                                            <i data-lucide="bot" class="w-3 h-3"></i>
-                                            <span>${poll.analyst || 'AI'}</span><span>|</span><span>${poll.date || ''}</span><span>|</span><span>총 ${total}표</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        <button onclick="castVote('${ticker}','bullish')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'bullish' ? 'bg-emerald-500 text-white shadow-md shadow-emerald-200' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200'}">
-                                            <i data-lucide="trending-up" class="w-4 h-4"></i> 강세 <span class="font-black">${bull}</span>
-                                        </button>
-                                        <button onclick="castVote('${ticker}','neutral')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'neutral' ? 'bg-slate-600 text-white shadow-md shadow-slate-300' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200'}">
-                                            <i data-lucide="minus" class="w-4 h-4"></i> 중립 <span class="font-black">${neutral}</span>
-                                        </button>
-                                        <button onclick="castVote('${ticker}','bearish')" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all ${myVote === 'bearish' ? 'bg-rose-500 text-white shadow-md shadow-rose-200' : 'bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200'}">
-                                            <i data-lucide="trending-down" class="w-4 h-4"></i> 약세 <span class="font-black">${bear}</span>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="mt-4 flex h-2.5 rounded-full overflow-hidden bg-slate-100">
-                                    ${bullPct > 0 ? '<div class="bg-emerald-400 transition-all" style="width:'+bullPct+'%"></div>' : ''}
-                                    ${neutralPct > 0 ? '<div class="bg-slate-300 transition-all" style="width:'+neutralPct+'%"></div>' : ''}
-                                    ${bearPct > 0 ? '<div class="bg-rose-400 transition-all" style="width:'+bearPct+'%"></div>' : ''}
-                                </div>
-                                <div class="mt-1.5 flex justify-between text-[10px] font-bold">
-                                    <span class="text-emerald-500">강세 ${bullPct}%</span>
-                                    <span class="text-slate-400">중립 ${neutralPct}%</span>
-                                    <span class="text-rose-500">약세 ${bearPct}%</span>
-                                </div>
-                            </div>`;
-                        }).join('')}
+
+                    <!-- 필터 패널 -->
+                    <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-5 shadow-sm">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <!-- 52주 신고가 대비 -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1.5">📈 52주 신고가 대비 (최소 %)</label>
+                                <select id="sc-from-high" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400">
+                                    <option value="50">50% 이상</option>
+                                    <option value="70" selected>70% 이상</option>
+                                    <option value="80">80% 이상</option>
+                                    <option value="90">90% 이상</option>
+                                    <option value="95">95% 이상 (신고가 근접)</option>
+                                </select>
+                            </div>
+
+                            <!-- EPS 성장률 -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1.5">💰 최소 EPS 성장률</label>
+                                <select id="sc-eps" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400">
+                                    <option value="0" selected>제한 없음</option>
+                                    <option value="10">10% 이상</option>
+                                    <option value="25">25% 이상</option>
+                                    <option value="50">50% 이상</option>
+                                    <option value="100">100% 이상</option>
+                                </select>
+                            </div>
+
+                            <!-- 정렬 기준 -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1.5">📊 정렬 기준</label>
+                                <select id="sc-sort" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-indigo-400">
+                                    <option value="score" selected>CAN SLIM 점수</option>
+                                    <option value="eps_growth">EPS 성장률</option>
+                                    <option value="revenue_growth">매출 성장률</option>
+                                    <option value="from_high">신고가 근접도</option>
+                                </select>
+                            </div>
+
+                            <!-- 스캔 버튼 -->
+                            <div>
+                                <button onclick="runScreener()" id="sc-btn"
+                                    class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+                                    <span id="sc-btn-icon">🔍</span>
+                                    <span id="sc-btn-text">종목 스캔 시작</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 안내 메시지 -->
+                        <p class="text-xs text-slate-400 mt-3">※ 미국 주요 종목(S&P 100 + 성장주) 대상 · yfinance 실시간 데이터 · 스캔에 30~60초 소요</p>
                     </div>
-                    <div class="mt-8 bg-indigo-50 rounded-2xl p-6 border border-indigo-100 text-center">
-                        <p class="text-sm text-indigo-600 font-bold mb-1">AI가 분석한 종목에 대한 여러분의 의견을 투표해 주세요!</p>
-                        <p class="text-xs text-indigo-400">투표는 서버에 실시간 저장되며, 같은 버튼을 다시 누르면 투표가 취소됩니다.</p>
+
+                    <!-- 결과 영역 -->
+                    <div id="sc-result-area">
+                        <!-- 초기 안내 -->
+                        <div id="sc-empty" class="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                            <div class="text-5xl mb-4">🔍</div>
+                            <h3 class="text-lg font-bold text-slate-700 mb-2">스캔을 시작해보세요</h3>
+                            <p class="text-slate-400 text-sm">필터 조건을 설정하고 "종목 스캔 시작"을 클릭하면<br>CAN SLIM 기준에 맞는 유망 종목을 찾아드립니다</p>
+                        </div>
+
+                        <!-- 로딩 -->
+                        <div id="sc-loading" class="hidden bg-white rounded-2xl border border-slate-200 p-12 text-center">
+                            <div class="inline-block w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mb-4"></div>
+                            <p class="text-slate-600 font-bold">종목 스캔 중...</p>
+                            <p class="text-slate-400 text-sm mt-1">80개 종목을 실시간으로 분석하고 있습니다</p>
+                        </div>
+
+                        <!-- 결과 테이블 -->
+                        <div id="sc-table-wrap" class="hidden">
+                            <div class="flex items-center justify-between mb-3">
+                                <p id="sc-result-count" class="text-sm font-bold text-slate-600"></p>
+                                <p class="text-xs text-slate-400" id="sc-timestamp"></p>
+                            </div>
+
+                            <!-- 모바일: 카드형 / 데스크탑: 테이블형 -->
+                            <div id="sc-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                        </div>
+
+                        <!-- 오류 -->
+                        <div id="sc-error" class="hidden bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+                            <p class="text-red-600 font-bold" id="sc-error-msg">스캔 중 오류가 발생했습니다</p>
+                        </div>
                     </div>
                 </div>
             `;
             lucide.createIcons();
         }
 
-        function renderCustomAI() {
-            document.getElementById('content').innerHTML = `
-                <div class="max-w-4xl mx-auto py-12 text-center">
-                    <i data-lucide="cpu" class="w-16 h-16 text-slate-300 mx-auto mb-4"></i>
-                    <h2 class="text-3xl font-bold mb-2">나만의 투자봇 빌더</h2>
-                    <p class="text-slate-500">매매 데이터를 학습시켜 독보적인 AI를 만드는 기능이 곧 공개됩니다.</p>
+        function getScoreColor(score) {
+            if (score >= 70) return { bg: 'bg-emerald-100', text: 'text-emerald-700', bar: 'bg-emerald-500' };
+            if (score >= 50) return { bg: 'bg-amber-100', text: 'text-amber-700', bar: 'bg-amber-400' };
+            return { bg: 'bg-slate-100', text: 'text-slate-600', bar: 'bg-slate-400' };
+        }
+
+        function getGrowthColor(val) {
+            if (val >= 50) return 'text-emerald-600 font-bold';
+            if (val >= 20) return 'text-emerald-500';
+            if (val > 0) return 'text-slate-600';
+            return 'text-red-500';
+        }
+
+        function formatMarketCap(cap) {
+            if (!cap) return '—';
+            if (cap >= 1e12) return `$${(cap / 1e12).toFixed(1)}T`;
+            if (cap >= 1e9) return `$${(cap / 1e9).toFixed(1)}B`;
+            if (cap >= 1e6) return `$${(cap / 1e6).toFixed(1)}M`;
+            return `$${cap}`;
+        }
+
+        function renderScreenerCards(results) {
+            const wrap = document.getElementById('sc-cards');
+            if (!wrap) return;
+
+            wrap.innerHTML = results.map(s => {
+                const sc = getScoreColor(s.score);
+                return `
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg transition-shadow">
+                    <!-- 헤더 -->
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <span class="font-black text-slate-900 text-base">${s.symbol}</span>
+                                <span class="text-xs text-slate-400">${s.sector}</span>
+                            </div>
+                            <p class="text-xs text-slate-500 truncate max-w-[160px]">${s.name}</p>
+                        </div>
+                        <div class="${sc.bg} ${sc.text} rounded-xl px-3 py-1 text-center">
+                            <div class="text-lg font-black">${s.score}</div>
+                            <div class="text-[9px] font-bold opacity-70">점수</div>
+                        </div>
+                    </div>
+
+                    <!-- 점수 바 -->
+                    <div class="h-1.5 bg-slate-100 rounded-full mb-4 overflow-hidden">
+                        <div class="${sc.bar} h-full rounded-full transition-all" style="width:${Math.min(s.score, 100)}%"></div>
+                    </div>
+
+                    <!-- 지표 그리드 -->
+                    <div class="grid grid-cols-2 gap-2 mb-4 text-xs">
+                        <div class="bg-slate-50 rounded-xl p-2.5">
+                            <div class="text-slate-400 mb-0.5">현재가</div>
+                            <div class="font-bold text-slate-900">$${s.price.toLocaleString()}</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-2.5">
+                            <div class="text-slate-400 mb-0.5">신고가 대비</div>
+                            <div class="font-bold ${s.from_high_pct >= 90 ? 'text-emerald-600' : 'text-slate-700'}">${s.from_high_pct}%</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-2.5">
+                            <div class="text-slate-400 mb-0.5">EPS 성장</div>
+                            <div class="font-bold ${getGrowthColor(s.eps_growth)}">${s.eps_growth > 0 ? '+' : ''}${s.eps_growth}%</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-2.5">
+                            <div class="text-slate-400 mb-0.5">매출 성장</div>
+                            <div class="font-bold ${getGrowthColor(s.revenue_growth)}">${s.revenue_growth > 0 ? '+' : ''}${s.revenue_growth}%</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-2.5">
+                            <div class="text-slate-400 mb-0.5">거래량 비율</div>
+                            <div class="font-bold ${s.vol_ratio >= 1.5 ? 'text-indigo-600' : 'text-slate-700'}">${s.vol_ratio}x</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-xl p-2.5">
+                            <div class="text-slate-400 mb-0.5">시가총액</div>
+                            <div class="font-bold text-slate-700">${formatMarketCap(s.market_cap)}</div>
+                        </div>
+                    </div>
+
+                    <!-- 분석 바로가기 -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="window.location.href='/trading.html?ticker=${encodeURIComponent(s.symbol)}&autostart=true'"
+                            class="py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all">
+                            📈 트레이딩 분석
+                        </button>
+                        <button onclick="window.location.href='/analysis.html?ticker=${encodeURIComponent(s.symbol)}&autostart=true'"
+                            class="py-2 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all">
+                            📊 펀더멘털 분석
+                        </button>
+                    </div>
                 </div>
-            `;
-            lucide.createIcons();
+                `;
+            }).join('');
+        }
+
+        async function runScreener() {
+            if (screenerLoading) return;
+            screenerLoading = true;
+
+            const btn = document.getElementById('sc-btn');
+            const btnText = document.getElementById('sc-btn-text');
+            const btnIcon = document.getElementById('sc-btn-icon');
+            if (btn) { btn.disabled = true; btnIcon.textContent = '⏳'; btnText.textContent = '스캔 중...'; }
+
+            document.getElementById('sc-empty')?.classList.add('hidden');
+            document.getElementById('sc-table-wrap')?.classList.add('hidden');
+            document.getElementById('sc-error')?.classList.add('hidden');
+            document.getElementById('sc-loading')?.classList.remove('hidden');
+
+            const minFromHigh = parseFloat(document.getElementById('sc-from-high')?.value || 70);
+            const minEps = parseFloat(document.getElementById('sc-eps')?.value || 0);
+            const sortBy = document.getElementById('sc-sort')?.value || 'score';
+
+            try {
+                const res = await fetch('/api/screener/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        market: 'US',
+                        min_eps_growth: minEps,
+                        min_from_high: minFromHigh,
+                        sort_by: sortBy,
+                        max_results: 30
+                    })
+                });
+
+                if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+                const data = await res.json();
+                screenerResults = data.results || [];
+
+                document.getElementById('sc-loading')?.classList.add('hidden');
+                document.getElementById('sc-table-wrap')?.classList.remove('hidden');
+
+                const countEl = document.getElementById('sc-result-count');
+                if (countEl) countEl.textContent = `${screenerResults.length}개 종목 발견 (정렬: ${sortBy})`;
+
+                const tsEl = document.getElementById('sc-timestamp');
+                if (tsEl) tsEl.textContent = new Date(data.timestamp + 'Z').toLocaleString('ko-KR');
+
+                renderScreenerCards(screenerResults);
+
+            } catch (err) {
+                document.getElementById('sc-loading')?.classList.add('hidden');
+                document.getElementById('sc-error')?.classList.remove('hidden');
+                const errMsg = document.getElementById('sc-error-msg');
+                if (errMsg) errMsg.textContent = `스캔 오류: ${err.message}`;
+            } finally {
+                screenerLoading = false;
+                if (btn) { btn.disabled = false; btnIcon.textContent = '🔍'; btnText.textContent = '종목 스캔 시작'; }
+            }
         }
 
         function renderPlaceholder(page) {
@@ -638,7 +1212,10 @@
             `;
         }
 
-        window.onload = () => { navigate('홈'); lucide.createIcons(); };
+        // Google GIS 스크립트 로드 완료 콜백
+        window.onGoogleLibraryLoad = () => { initGoogleAuth(); };
+
+        window.onload = () => { navigate('홈'); lucide.createIcons(); updatePremiumBtn(); };
     </script>
 </body>
 </html>
