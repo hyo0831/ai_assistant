@@ -10,7 +10,14 @@
 """
 
 import requests
+import urllib3
 from datetime import datetime, timedelta
+
+# KIS 실전 서버(openapi.kis.co.kr)는 한국 CA 인증서를 사용합니다.
+# Python certifi 번들에 해당 중간 인증서가 포함되어 있지 않아
+# SSL 검증 오류가 발생합니다. verify=False로 우회합니다.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+_VERIFY = False
 
 
 class _KISBase:
@@ -33,6 +40,7 @@ class _KISBase:
             json={"grant_type": "client_credentials",
                   "appkey": self.app_key, "appsecret": self.app_secret},
             timeout=10,
+            verify=_VERIFY,
         )
         r.raise_for_status()
         body = r.json()
@@ -55,7 +63,7 @@ class _KISBase:
         all_rows, fk, nk = [], "", ""
         while True:
             params = {**base_params, "CTX_AREA_FK100": fk, "CTX_AREA_NK100": nk}
-            r = requests.get(url, headers=self._headers(tr_id), params=params, timeout=10)
+            r = requests.get(url, headers=self._headers(tr_id), params=params, timeout=10, verify=_VERIFY)
             r.raise_for_status()
             body = r.json()
             if body.get("rt_cd") != "0":
