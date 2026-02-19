@@ -849,7 +849,14 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
         'rs_rating': None,
         'rs_trend': 'N/A',
         'rs_new_high': False,
-        'interpretation': ''
+        'interpretation': '',
+        # RS 라인 상세 (L 모듈에서 사용)
+        'rs_weeks_declining': None,
+        'rs_sell_signal': False,
+        'rs_caution': False,
+        'resilience_pct': None,
+        'strong_on_down_weeks': None,
+        'total_down_weeks': None,
     }
 
     try:
@@ -953,6 +960,33 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
                 rs_52w_high = np.max(rs_line[-52:])
                 if rs_line[-1] >= rs_52w_high * 0.98:  # 2% 이내
                     result['rs_new_high'] = True
+
+            # RS 라인 연속 하락 주수 (O'Neil 매도 신호 판단용)
+            if len(rs_line) >= 4:
+                weeks_declining = 0
+                for i in range(len(rs_line) - 1, 0, -1):
+                    if rs_line[i] < rs_line[i - 1]:
+                        weeks_declining += 1
+                    else:
+                        break
+                result['rs_weeks_declining'] = weeks_declining
+                result['rs_sell_signal'] = weeks_declining >= 28   # 7개월
+                result['rs_caution'] = weeks_declining >= 16       # 4개월
+
+            # 시장 하락 주에 주가 방어력 (선도주 감지)
+            bm_chg = sp_closes.pct_change()
+            st_chg = stock_closes.pct_change()
+            down_weeks = 0
+            strong_on_down = 0
+            for i in range(1, len(bm_chg)):
+                if bm_chg.iloc[i] < -0.01:   # 벤치마크 1%+ 하락 주
+                    down_weeks += 1
+                    if st_chg.iloc[i] > 0:   # 종목은 상승
+                        strong_on_down += 1
+            result['strong_on_down_weeks'] = strong_on_down
+            result['total_down_weeks'] = down_weeks
+            if down_weeks > 0:
+                result['resilience_pct'] = round((strong_on_down / down_weeks) * 100, 1)
 
         # 해석 생성
         rs = result['rs_rating']
