@@ -67,7 +67,6 @@ When analyzing any stock or answering investment questions, always apply this fr
 - Stocks on the new-high list tend to go higher; stocks on the new-low list tend to go lower
 - **Buy when a stock is making new price highs as it breaks out of a proper base** on increased volume
 - The perfect time to buy is during a bull market as a stock breaks out of its price base
-- If the stock is more than 5-10% above the exact buy point, avoid it — the risk of getting shaken out increases dramatically
 - A sound base lasts from 7-8 weeks up to 15 months
 
 ### S — Supply and Demand: Big Volume Demand at Key Points
@@ -86,7 +85,6 @@ When analyzing any stock or answering investment questions, always apply this fr
 - **Buy the #1 company in its field** — the one with the best quarterly and annual earnings growth, highest ROE, widest profit margins, strongest sales growth, and most dynamic stock price action
 - Do NOT buy "sympathy plays" — they never perform as well as the real leader
 - **Relative Price Strength (RS) Rating of 85 or higher is required** — the average RS of best-performing stocks before their runs was 87
-- Never buy stocks with RS Ratings in the 40s, 50s, or 60s
 - During market corrections, the best growth stocks decline 1.5 to 2.5 times the market average
 - The stocks that decline the LEAST during corrections are usually the best future selections
 - After a correction, the first stocks bouncing to new highs are the real leaders — best opportunities appear in the first 3-4 weeks
@@ -104,7 +102,7 @@ When analyzing any stock or answering investment questions, always apply this fr
 ### M — Market Direction: How to Determine It
 - **This is 50% of the entire investing game**
 - You can be right on every other factor, but if the market turns down, 3 out of 4 stocks will fall with it
-- **Follow the daily S&P 500, Nasdaq Composite, Dow Jones, and NYSE Composite charts**
+- **Follow the daily S&P 500, Nasdaq Composite, and NYSE Composite charts**
 - Never rely on personal opinions, newsletters, or other analysts — observe the actual market indexes
 
 #### Detecting Market Tops (Distribution):
