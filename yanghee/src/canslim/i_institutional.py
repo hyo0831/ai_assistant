@@ -5,7 +5,6 @@ I - Institutional Sponsorship
 """
 
 from typing import Dict
-from src.utils import is_korean_stock
 
 ONEIL_RULE = """
 ### I — Institutional Sponsorship (O'Neil 원문 규칙)
@@ -32,7 +31,7 @@ ONEIL_RULE = """
 """.strip()
 
 
-def analyze(stock, info: dict, ticker: str = '') -> Dict:
+def analyze(stock, info: dict) -> Dict:
     """기관 보유 현황 데이터 수집"""
     result = {
         'inst_holders_pct': None,
@@ -42,10 +41,6 @@ def analyze(stock, info: dict, ticker: str = '') -> Dict:
         'top_mutual_funds': [],
         'data_note': ''
     }
-
-    # 한국 주식은 yfinance에서 기관 보유 데이터가 제한적
-    if is_korean_stock(ticker):
-        result['data_note'] = '한국 주식은 yfinance 기관 보유 데이터가 제한적입니다. 금융감독원 전자공시(DART) 등 별도 확인 필요.'
 
     try:
         inst_pct = info.get('heldPercentInstitutions')
@@ -87,7 +82,7 @@ def analyze(stock, info: dict, ticker: str = '') -> Dict:
             pass
 
     except Exception as e:
-        result['data_note'] += f' Error: {e}' if result['data_note'] else f'Error: {e}'
+        result['data_note'] = f'Error: {e}'
 
     return result
 

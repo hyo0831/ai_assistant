@@ -2,13 +2,12 @@
 M - Market Direction
 
 O'Neil: "투자의 50%는 시장 방향"
-S&P 500, NASDAQ + 한국 KOSPI/KOSDAQ 지수의 추세 및 Distribution Day 데이터 수집.
+S&P 500, NASDAQ 지수의 추세 및 Distribution Day 데이터 수집.
 """
 
 import pandas as pd
 import yfinance as yf
 from typing import Dict
-from src.utils import is_korean_stock
 
 ONEIL_RULE = """
 ### M — Market Direction (O'Neil 원문 규칙)
@@ -62,19 +61,13 @@ ONEIL_RULE = """
 """.strip()
 
 
-def analyze(ticker: str = '') -> Dict:
+def analyze() -> Dict:
     """시장 방향 데이터 수집"""
     result = {
         'sp500': _analyze_index('^GSPC', 'S&P 500'),
         'nasdaq': _analyze_index('^IXIC', 'NASDAQ'),
         'data_note': ''
     }
-
-    # 한국 주식이면 KOSPI/KOSDAQ도 분석
-    if is_korean_stock(ticker):
-        result['kospi'] = _analyze_index('^KS11', 'KOSPI')
-        result['kosdaq'] = _analyze_index('^KQ11', 'KOSDAQ')
-
     return result
 
 
@@ -184,8 +177,7 @@ def format_for_prompt(data: Dict) -> str:
     """AI 프롬프트에 삽입할 텍스트 생성"""
     lines = ["### M - Market Direction"]
 
-    # 모든 지수 키를 순회 (sp500, nasdaq + 한국 kospi, kosdaq)
-    index_keys = ['sp500', 'nasdaq', 'kospi', 'kosdaq']
+    index_keys = ['sp500', 'nasdaq']
     for key in index_keys:
         if key not in data:
             continue
@@ -258,9 +250,10 @@ def format_for_prompt(data: Dict) -> str:
     max_dist = 0
     any_confirmed_down = False
     all_down = True
-    checked_keys = [k for k in index_keys if k in data]
 
-    for key in checked_keys:
+    for key in index_keys:
+        if key not in data:
+            continue
         idx_data = data[key]
         max_dist = max(max_dist, idx_data.get('distribution_days_5wk', 0))
         trend = idx_data.get('trend', 'N/A')
@@ -269,7 +262,7 @@ def format_for_prompt(data: Dict) -> str:
         if trend not in ('DOWNTREND', 'CONFIRMED DOWNTREND'):
             all_down = False
 
-    if any_confirmed_down or (all_down and len(checked_keys) > 0):
+    if any_confirmed_down or all_down:
         lines.append("  CONFIRMED DOWNTREND: 신규 매수 중단, 현금 비중 확대 강력 권고")
 
     if max_dist >= 5:
