@@ -93,18 +93,31 @@ def format_for_prompt(data: Dict) -> str:
     """AI 프롬프트에 삽입할 텍스트 생성 (RAG 규칙 포함)"""
     lines = ["### A - Annual Earnings Increases"]
 
-    # 데이터
+    # 연간 순이익 (과거→현재 순)
     ni = data.get('annual_net_income', [])
     if ni:
-        ni_text = ", ".join([f"{y['year']}: {y['net_income']:,.0f}" for y in ni])
-        lines.append(f"Annual Net Income ({len(ni)}Y): {ni_text}")
+        ni_asc = list(reversed(ni))
+        ni_text = ", ".join([f"{y['year']}: {y['net_income']:,.0f}" for y in ni_asc])
+        lines.append(f"Annual Net Income (older→recent): {ni_text}")
 
+    # YoY 성장률 (과거→현재 순)
     rates = data.get('annual_growth_rates', [])
     if rates:
-        lines.append(f"YoY growth rates: {rates}")
+        rates_asc = list(reversed(rates))
+        rates_text = ", ".join([f"{v:+.1f}%" if v is not None else "N/A" for v in rates_asc])
+        lines.append(f"YoY growth rates (older→recent): {rates_text}")
+        valid = [v for v in rates_asc if v is not None]
+        if len(valid) >= 2:
+            trend = " → ".join([f"{v:+.1f}%" for v in valid])
+            lines.append(f"YoY trend: {trend}")
 
     consec = data.get('consecutive_growth_years', 0)
-    lines.append(f"Consecutive growth years (from latest): {consec}")
+    if consec >= 3:
+        lines.append(f"Consecutive growth years: {consec} (STRONG - O'Neil requires 3+ years)")
+    elif consec >= 1:
+        lines.append(f"Consecutive growth years: {consec}")
+    else:
+        lines.append(f"Consecutive growth years: 0 (WARNING - no recent consecutive growth)")
 
     if data.get('roe') is not None:
         lines.append(f"ROE: {data['roe']}%")

@@ -113,7 +113,15 @@ def format_for_prompt(data: Dict) -> str:
         lines.append(f"Debt-to-Equity: {data['debt_to_equity']}%")
 
     if data.get('share_change_pct') is not None:
-        lines.append(f"Share count change (1yr): {data['share_change_pct']:+.1f}%")
+        chg = data['share_change_pct']
+        if chg <= -5:
+            lines.append(f"Share count change (1yr): {chg:+.1f}% (SIGNIFICANT BUYBACK - O'Neil positive)")
+        elif chg <= -2:
+            lines.append(f"Share count change (1yr): {chg:+.1f}% (buyback detected)")
+        elif chg >= 5:
+            lines.append(f"Share count change (1yr): {chg:+.1f}% (DILUTION WARNING - shares increasing)")
+        else:
+            lines.append(f"Share count change (1yr): {chg:+.1f}%")
     if data.get('buyback_detected'):
         lines.append("Buyback: Active share repurchase detected")
 

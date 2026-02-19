@@ -38,10 +38,12 @@ def analyze(stock, info: dict) -> Dict:
     """
     result = {
         'quarterly_eps_growth_yoy': [],    # 최근 5개 분기 YoY 성장률 (최근→과거)
+        'quarterly_net_income_qoq': [],    # 분기별 순이익 QoQ 증감률 (전 분기 대비)
         'quarterly_revenue': [],            # 분기 매출 추이
         'quarterly_net_income': [],         # 분기 순이익 추이
         'revenue_growth': None,             # 최근 매출 성장률
         'eps_acceleration': None,           # 가속/감속 여부 설명
+        'ni_consecutive_growth': None,      # 연속 순이익 증가 분기 수
         'data_note': ''
     }
 
@@ -74,7 +76,27 @@ def analyze(stock, info: dict) -> Dict:
                 yoy = ((recent_q - year_ago_q) / abs(year_ago_q)) * 100
                 result['quarterly_eps_growth_yoy'].append(round(float(yoy), 1))
 
-            # 가속/감속 판단 근거
+            # QoQ 순이익 증감률 계산 (전 분기 대비)
+            for i in range(min(7, len(ni_series) - 1)):
+                curr = ni_series.iloc[i]
+                prev = ni_series.iloc[i + 1]
+                date_label = ni_series.index[i].strftime('%Y-%m') if hasattr(ni_series.index[i], 'strftime') else str(ni_series.index[i])
+                if pd.isna(curr) or pd.isna(prev) or prev == 0:
+                    result['quarterly_net_income_qoq'].append({'period': date_label, 'qoq_growth': None})
+                else:
+                    qoq = ((curr - prev) / abs(prev)) * 100
+                    result['quarterly_net_income_qoq'].append({'period': date_label, 'qoq_growth': round(float(qoq), 1)})
+
+            # 연속 순이익 증가 분기 수 계산
+            consecutive = 0
+            for entry in result['quarterly_net_income_qoq']:
+                if entry['qoq_growth'] is not None and entry['qoq_growth'] > 0:
+                    consecutive += 1
+                else:
+                    break
+            result['ni_consecutive_growth'] = consecutive
+
+            # YoY 가속/감속 판단 근거
             growths = [g for g in result['quarterly_eps_growth_yoy'] if g is not None]
             if len(growths) >= 3:
                 if growths[0] > growths[1] > growths[2]:
@@ -113,23 +135,49 @@ def format_for_prompt(data: Dict) -> str:
 
     yoy = data.get('quarterly_eps_growth_yoy', [])
     if yoy:
-        lines.append(f"Recent {len(yoy)}Q YoY EPS growth rates: {yoy}")
+        yoy_asc = list(reversed(yoy))
+        yoy_text = ", ".join([f"{v:+.1f}%" if v is not None else "N/A" for v in yoy_asc])
+        lines.append(f"YoY EPS growth (older→recent): {yoy_text}")
         latest = yoy[0] if yoy[0] is not None else 'N/A'
         lines.append(f"Latest quarter YoY: {latest}%")
         lines.append(f"O'Neil minimum: 25-50%+, ideal 40-500%+")
+        valid = [v for v in yoy_asc if v is not None]
+        if len(valid) >= 2:
+            yoy_direction = " → ".join([f"{v:+.1f}%" for v in valid])
+            lines.append(f"YoY trend: {yoy_direction}")
 
     if data.get('eps_acceleration'):
-        lines.append(f"Acceleration status: {data['eps_acceleration']}")
+        lines.append(f"YoY Acceleration status: {data['eps_acceleration']}")
 
     ni = data.get('quarterly_net_income', [])
     if ni:
-        ni_text = ", ".join([f"{q['period']}: {q['net_income']:,.0f}" for q in ni[:6]])
-        lines.append(f"Net Income trend: {ni_text}")
+        ni_asc = list(reversed(ni[:6]))
+        ni_text = ", ".join([f"{q['period']}: {q['net_income']:,.0f}" for q in ni_asc])
+        lines.append(f"Net Income trend (older→recent): {ni_text}")
+
+    qoq = data.get('quarterly_net_income_qoq', [])
+    if qoq:
+        qoq_asc = list(reversed(qoq[:6]))
+        qoq_text = ", ".join([
+            f"{q['period']}: {q['qoq_growth']:+.1f}%" if q['qoq_growth'] is not None else f"{q['period']}: N/A"
+            for q in qoq_asc
+        ])
+        lines.append(f"Net Income QoQ growth (older→recent): {qoq_text}")
+        consec = data.get('ni_consecutive_growth', 0)
+        if consec >= 3:
+            lines.append(f"Consecutive QoQ growth: {consec} quarters (STRONG ACCELERATION - O'Neil highly positive)")
+        elif consec >= 2:
+            lines.append(f"Consecutive QoQ growth: {consec} quarters (positive)")
+        elif consec == 1:
+            lines.append(f"Consecutive QoQ growth: {consec} quarter (weak)")
+        else:
+            lines.append(f"Consecutive QoQ growth: 0 quarters (no consecutive growth)")
 
     rev = data.get('quarterly_revenue', [])
     if rev:
-        rev_text = ", ".join([f"{q['period']}: {q['revenue']:,.0f}" for q in rev[:6]])
-        lines.append(f"Revenue trend: {rev_text}")
+        rev_asc = list(reversed(rev[:6]))
+        rev_text = ", ".join([f"{q['period']}: {q['revenue']:,.0f}" for q in rev_asc])
+        lines.append(f"Revenue trend (older→recent): {rev_text}")
 
     if data.get('revenue_growth') is not None:
         lines.append(f"Revenue growth: {data['revenue_growth']:+.1f}% (O'Neil: sales 25%+ should support EPS)")
