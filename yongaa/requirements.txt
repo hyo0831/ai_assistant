@@ -2,6 +2,8 @@
 requests
 pandas
 openai
+flask
+python-dotenv
 
 # 업비트
 PyJWT

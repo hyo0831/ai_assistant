@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORION - 투자 성향 진단 서비스</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            --text-primary: #333;
+            --text-secondary: #666;
+            --border-color: #e0e0e0;
+            --accent-color: #0f3460;
+        }
+
+        body.light-mode {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text-primary: #333;
+            --text-secondary: #666;
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+            background: var(--bg-tertiary);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* 네비게이션 바 */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+
+        body.dark-mode .navbar {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .navbar-brand {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .nav-item {
+            color: white;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .theme-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 헤더 */
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            animation: fadeIn 0.8s ease-in;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            font-size: 0.95em;
+            opacity: 0.8;
+            font-style: italic;
+            color: #e0e0e0;
+        }
+
+        /* 메인 콘텐츠 */
+        .content {
+            background: var(--bg-primary);
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            color: var(--text-primary);
+            transition: all 0.3s;
+        }
+
+        .tabs {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--border-color);
+            transition: all 0.3s;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .tab-button:hover {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .tab-button.active {
+            color: var(--accent-color);
+            background: var(--bg-primary);
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(135deg, #0f3460, #16213e);
+        }
+
+        /* 탭 콘텐츠 */
+        .tab-content {
+            display: none;
+            padding: 40px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* 폼 요소 */
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95em;
+        }
+
+        select, input[type="password"], input[type="text"], textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-family: inherit;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        select:focus, input[type="password"]:focus, input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.1);
+        }
+
+        /* 설문 섹션 */
+        .question-container {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            border-left: 4px solid #0f3460;
+        }
+
+        .question-number {
+            font-size: 0.9em;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .question-text {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .option {
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="radio"] {
+            margin-right: 12px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #0f3460;
+        }
+
+        .option label {
+            margin-bottom: 0;
+            font-weight: 400;
+            cursor: pointer;
+            flex: 1;
+        }
+
+        /* 버튼 */
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            color: white;
+            flex: 1;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(15, 52, 96, 0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        /* 로딩 상태 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0f3460;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 결과 화면 */
+        .result-container {
+            display: none;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .result-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .personality-name {
+            font-size: 1.8em;
+            font-weight: 700;
+            color: #0f3460;
+            margin-bottom: 10px;
+        }
+
+        .personality-symbol {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .personality-style {
+            font-size: 1.1em;
+            color: #666;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+
+        .personality-desc {
+            font-size: 0.95em;
+            line-height: 1.6;
+            color: #555;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #0f3460;
+            margin-bottom: 20px;
+        }
+
+        .traits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .trait-tag {
+            background: linear-gradient(135deg, #0f3460, #16213e);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .analysis-text {
+            white-space: pre-wrap;
+            line-height: 1.8;
+            color: #444;
+            font-size: 0.95em;
+            margin-top: 30px;
+            padding: 30px;
+            background: #f5f5f5;
+            border-radius: 10px;
+            border-left: 4px solid #0f3460;
+        }
+
+        /* 에러 메시지 */
+        .error-message {
+            display: none;
+            background: #ffe0e0;
+            color: #c00;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #c00;
+        }
+
+        /* 경고 메시지 */
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .tab-content {
+                padding: 20px;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .tabs {
+                flex-wrap: wrap;
+            }
+
+            .tab-button {
+                font-size: 0.9em;
+            }
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, #e8f1ff, #f0f4ff);
+            border-left: 4px solid #0f3460;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-box h3 {
+            color: #0f3460;
+            margin-bottom: 10px;
+            font-size: 1em;
+        }
+
+        .info-box p {
+            color: #444;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body class="light-mode">
+    <div class="container">
+        <!-- 네비게이션 바 -->
+        <div class="navbar">
+            <div class="navbar-brand" onclick="switchApp('orion')">🌙 ORION</div>
+            <div class="navbar-menu">
+                <div class="nav-item active" onclick="switchApp('orion')" id="nav-orion">투자 성향 진단</div>
+                <div class="nav-item" onclick="switchApp('screener')" id="nav-screener">종목 스크리너</div>
+                <button class="theme-toggle" onclick="toggleTheme()" title="다크/라이트 모드">🌙</button>
+            </div>
+        </div>
+
+        <!-- 헤더 -->
+        <div class="header" id="orion-header">
+            <h1>🌙 ORION</h1>
+            <p>밤하늘의 사냥꾼, 당신의 투자 본능을 분석합니다</p>
+            <p class="tagline">투자 성향 진단 AI 서비스</p>
+        </div>
+
+        <!-- 스크리너 헤더 (처음엔 숨김) -->
+        <div class="header" id="screener-header" style="display: none;">
+            <h1>🔍 종목 스크리너</h1>
+            <p>AI가 추천하는 맞춤형 종목 분석</p>
+            <p class="tagline">당신의 투자 목표에 맞는 종목을 찾아보세요</p>
+        </div>
+
+        <!-- ORION 콘텐츠 -->
+        <div class="content" id="orion-content">
+            <!-- 탭 메뉴 -->
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('diagnosis')">진단하기</button>
+                <button class="tab-button" onclick="switchTab('types')">성향 유형</button>
+                <button class="tab-button" onclick="switchTab('guide')">사용 가이드</button>
+            </div>
+
+            <!-- 탭 1: 진단 -->
+            <div id="diagnosis" class="tab-content active">
+                <h2 style="margin-bottom: 30px; color: #0f3460;">투자 성향 진단</h2>
+
+                <div class="error-message" id="errorMessage"></div>
+
+                <div class="info-box">
+                    <h3>✨ 이렇게 작동합니다</h3>
+                    <p>시장을 선택하고 간단한 설문에 응답하세요. AI가 당신의 투자 성향을 분석해 맞춤형 닉네임과 조언을 제공합니다.</p>
+                </div>
+
+                <!-- 시장 선택 -->
+                <div class="form-group">
+                    <label for="marketSelect">📊 투자 시장 선택</label>
+                    <select id="marketSelect" onchange="onMarketChange()">
+                        <option value="">-- 시장을 선택하세요 --</option>
+                        <option value="korean">📈 국내 주식</option>
+                        <option value="abroad">🌍 해외 주식</option>
+                        <option value="coin">₿ 암호화폐</option>
+                    </select>
+                </div>
+
+                <!-- API 키는 .env에서 자동 로드 -->
+                <div class="info-box">
+                    <h3>🔑 API 키 설정</h3>
+                    <p>OpenAI API 키는 <strong>.env 파일</strong>에서 자동으로 로드됩니다. 서버 관리자에게 API 키 설정을 확인하세요.</p>
+                </div>
+
+                <!-- 설문 -->
+                <div id="surveyContainer"></div>
+
+                <!-- 버튼 -->
+                <div class="button-group">
+                    <button class="btn-primary" onclick="submitSurvey()" id="submitBtn" style="display: none;">분석하기</button>
+                </div>
+
+                <!-- 로딩 -->
+                <div class="loading" id="loadingState">
+                    <div class="spinner"></div>
+                    <p>AI가 당신의 투자 성향을 분석 중입니다...</p>
+                </div>
+
+                <!-- 결과 -->
+                <div class="result-container" id="resultContainer">
+                    <div class="result-header">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; margin-bottom: 30px;">
+                            <!-- 사진 영역 -->
+                            <div style="background: #f5f5f5; border: 2px dashed #ddd; border-radius: 10px; padding: 40px 20px; text-align: center;">
+                                <div style="font-size: 4em; margin-bottom: 10px;">📸</div>
+                                <p style="color: #999; font-size: 0.9em;">사진</p>
+                                <p style="color: #ccc; font-size: 0.8em; margin-top: 5px;">(별자리+동물)</p>
+                            </div>
+                            <!-- 정보 영역 -->
+                            <div>
+                                <div id="resultPersonalityName" class="personality-name"></div>
+                                <div id="resultPersonalityStyle" class="personality-style"></div>
+                                <div id="resultPersonalityDesc" class="personality-desc" style="margin-top: 15px; margin-bottom: 0;"></div>
+                            </div>
+                        </div>
+                        <div class="traits" id="resultTraits" style="margin-top: 20px;"></div>
+                    </div>
+                    <div id="resultAnalysis" class="analysis-text"></div>
+                    <div class="button-group" style="margin-top: 30px;">
+                        <button class="btn-primary" onclick="resetDiagnosis()">다시 진단하기</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 탭 2: 성향 유형 -->
+            <div id="types" class="tab-content">
+                <h2 style="margin-bottom: 30px; color: #0f3460;">투자 성향 유형</h2>
+
+                <div class="info-box">
+                    <h3>🎯 ORION의 성향 분류</h3>
+                    <p>ORION은 별자리(Constellation) + 동물(Animal) + 투자 스타일로 9가지 성향을 분류합니다.</p>
+                </div>
+
+                <div id="typesContainer" style="display: grid; grid-template-columns: 1fr; gap: 20px;"></div>
+            </div>
+
+            <!-- 탭 3: 가이드 -->
+            <div id="guide" class="tab-content">
+                <h2 style="margin-bottom: 30px; color: #0f3460;">설문 작성 가이드</h2>
+
+                <div style="line-height: 1.8; color: #555;">
+                    <h3 style="color: #0f3460; margin: 25px 0 15px;">1️⃣ 시장 선택</h3>
+                    <p>당신이 주로 투자하는 시장을 선택합니다.</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>📈 <strong>국내주식</strong>: 한국 증권시장 중심 투자자</li>
+                        <li>🌍 <strong>해외주식</strong>: 나스닥, S&P 등 글로벌 투자자</li>
+                        <li>₿ <strong>암호화폐</strong>: 비트코인, 알트코인 중심 투자자</li>
+                    </ul>
+
+                    <h3 style="color: #0f3460; margin: 25px 0 15px;">2️⃣ 설문 작성 방법</h3>
+
+                    <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                        <h4 style="color: #0f3460; margin-bottom: 15px;">📋 객관식 문항</h4>
+                        <ul style="margin-left: 20px;">
+                            <li><strong>중복 선택 가능</strong> ✓✓✓</li>
+                            <li>자신의 생각과 가장 가까운 것을 <strong>모두 체크</strong하세요</li>
+                            <li>하나만 선택하지 않아도 괜찮습니다</li>
+                            <li>예) "적극적 투자" + "변동성 추구" 둘 다 해당하면 모두 선택</li>
+                        </ul>
+                    </div>
+
+                    <div style="background: #f0f5ff; padding: 20px; border-radius: 8px; margin: 15px 0;">
+                        <h4 style="color: #0f3460; margin-bottom: 15px;">✍️ 주관식 문항</h4>
+                        <ul style="margin-left: 20px;">
+                            <li><strong>자유롭게 작성</strong하세요</li>
+                            <li>당신의 <strong>실제 투자 행동</strong>을 솔직하게 표현</li>
+                            <li>이상적인 투자자가 아닌 <strong>'지금의 당신'</strong>을 묘사</li>
+                            <li><strong>구체적인 예시</strong>를 포함하면 더 정확한 분석</li>
+                        </ul>
+
+                        <div style="margin-top: 15px; padding: 15px; background: white; border-left: 4px solid #0f3460; border-radius: 5px;">
+                            <p style="margin-bottom: 10px;"><strong>주관식 작성 예시:</strong></p>
+                            <ul style="margin-left: 20px;">
+                                <li>"손실을 보면 즉시 탈출한다"</li>
+                                <li>"기술분석 차트를 중심으로 진입한다"</li>
+                                <li>"뉴스와 공시를 매일 확인하며 투자한다"</li>
+                                <li>"장기 보유하지 못하고 자주 바꾼다"</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3 style="color: #0f3460; margin: 25px 0 15px;">3️⃣ 결과 확인</h3>
+                    <p>AI가 당신의 설문 답변을 분석하여 다음을 제공합니다:</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>🌟 당신의 성향 닉네임 (별자리 + 동물)</li>
+                        <li>📊 성향 유형의 특징 설명</li>
+                        <li>💪 강점과 약점 분석</li>
+                        <li>🎯 맞춤형 투자 조언</li>
+                    </ul>
+
+                    <h3 style="color: #0f3460; margin: 25px 0 15px;">💡 정확한 분석을 위한 팁</h3>
+                    <ul style="margin-left: 20px;">
+                        <li>✅ <strong>솔직함</strong>이 가장 중요합니다</li>
+                        <li>✅ 이상적인 투자자가 아닌 <strong>현재의 당신</strong>을 표현하세요</li>
+                        <li>✅ 주관식 답변은 <strong>구체적</strong>할수록 좋습니다</li>
+                        <li>✅ 객관식은 해당 사항이 있으면 <strong>모두 선택</strong하세요</li>
+                        <li>✅ 감정적으로 반응하기보다 <strong>사실</strong>을 기반으로 답변하세요</li>
+                    </ul>
+
+                    <h3 style="color: #0f3460; margin: 25px 0 15px;">🌟 ORION의 특징</h3>
+                    <ul style="margin-left: 20px;">
+                        <li><strong>별자리 기반 분류:</strong> 9가지 우주적 성향 유형</li>
+                        <li><strong>AI 분석:</strong> 최신 GPT 모델로 깊이 있는 분석</li>
+                        <li><strong>맞춤형 조언:</strong> 당신의 성향에 맞는 핵심 전략 제시</li>
+                        <li><strong>빠른 분석:</strong> 즉시 결과 확인 가능</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- 스크리너 콘텐츠 -->
+        <div class="content" id="screener-content" style="display: none;">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchScreenerTab('search')">종목 검색</button>
+                <button class="tab-button" onclick="switchScreenerTab('guide')">사용 가이드</button>
+            </div>
+
+            <!-- 스크리너 검색 탭 -->
+            <div id="screener-search" class="tab-content active" style="padding: 40px;">
+                <h2 style="margin-bottom: 30px; color: var(--accent-color);">🔍 종목 스크리너</h2>
+
+                <div class="error-message" id="screenerErrorMessage"></div>
+
+                <div class="info-box">
+                    <h3>✨ AI가 추천하는 종목을 찾아보세요</h3>
+                    <p>당신의 투자 목표와 기간을 입력하면, AI가 조건에 맞는 종목을 분석해드립니다.</p>
+                </div>
+
+                <!-- 검색 폼 -->
+                <div class="form-group">
+                    <label for="screenerMarket">📊 시장 선택</label>
+                    <select id="screenerMarket" style="font-size: 1em; padding: 12px 15px; border: 2px solid var(--border-color);">
+                        <option value="ALL">-- 선택하세요 --</option>
+                        <option value="KOSPI">📈 코스피</option>
+                        <option value="KOSDAQ">📊 코스닥</option>
+                        <option value="NASDAQ">🌍 나스닥</option>
+                        <option value="ALL">전체</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="screenerQuery">💬 종목에 대해 자유롭게 질문하세요</label>
+                    <textarea id="screenerQuery"
+                              placeholder="예시:&#10;- 저 PER, 높은 배당율을 가진 우량주&#10;- 단타 고수익, 거래량 많은 종목&#10;- AI, 반도체 관련 성장주&#10;- 최근 상승추세, 기술주 분석&#10;- 현물 장기보유, 배당 중심"
+                              style="min-height: 100px; resize: vertical; font-size: 1em; padding: 12px 15px; border: 2px solid var(--border-color); border-radius: 8px; background: var(--bg-primary); color: var(--text-primary);"></textarea>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="screenerSearch()">종목 검색</button>
+                </div>
+
+                <!-- 로딩 -->
+                <div class="loading" id="screenerLoading">
+                    <div class="spinner"></div>
+                    <p>AI가 종목을 분석 중입니다...</p>
+                </div>
+
+                <!-- 결과 -->
+                <div id="screenerResult" style="margin-top: 40px; display: none;">
+                    <div id="screenerRecommendation" style="margin-bottom: 30px;"></div>
+                    <div id="screenerStocks"></div>
+                    <div class="button-group" style="margin-top: 30px;">
+                        <button class="btn-primary" onclick="resetScreener()">다시 검색하기</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 스크리너 가이드 탭 -->
+            <div id="screener-guide" class="tab-content" style="padding: 40px; display: none;">
+                <h2 style="margin-bottom: 30px; color: var(--accent-color);">스크리너 사용 가이드</h2>
+
+                <div style="line-height: 1.8; color: var(--text-primary);">
+                    <h3 style="color: var(--accent-color); margin: 25px 0 15px;">1️⃣ 시장 선택</h3>
+                    <p>검색할 시장을 선택합니다:</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li><strong>코스피</strong>: 한국 대형주 (종합주가지수)</li>
+                        <li><strong>코스닥</strong>: 한국 중소형주 (기술주 중심)</li>
+                        <li><strong>나스닥</strong>: 미국 기술주 (글로벌 성장주)</li>
+                    </ul>
+
+                    <h3 style="color: var(--accent-color); margin: 25px 0 15px;">2️⃣ 종목에 대해 자유롭게 질문</h3>
+                    <p>AI가 이해할 수 있도록 자신의 투자 목표를 자유롭게 설명합니다:</p>
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>예시 1:</strong> 저 PER, 높은 배당율을 가진 우량 기업
+                    </div>
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>예시 2:</strong> 단타 고수익, 거래량 많은 변동성 종목
+                    </div>
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>예시 3:</strong> AI, 반도체 관련 성장주, 기술 지표 강한 종목
+                    </div>
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>예시 4:</strong> 최근 상승 추세, 외국인 순매수, 모멘텀 있는 종목
+                    </div>
+
+                    <h3 style="color: var(--accent-color); margin: 25px 0 15px;">📋 AI가 생성하는 스크리닝 조건</h3>
+                    <p>당신의 질문을 분석한 AI가 다음을 자동으로 생성합니다:</p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>💡 <strong>공식명:</strong> 당신의 요청을 담은 간단한 공식 이름</li>
+                        <li>📝 <strong>설명:</strong> AI가 해석한 투자 전략 설명</li>
+                        <li>🔍 <strong>스크리닝 조건:</strong> 최대 10가지 구체적인 조건 (수치 포함)</li>
+                        <li>📊 <strong>추천 종목:</strong> 조건에 맞는 상위 5개 종목</li>
+                    </ul>
+
+                    <h3 style="color: var(--accent-color); margin: 25px 0 15px;">📊 결과 해석</h3>
+                    <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <p><strong>공식 이름</strong>: AI가 만든 스크리닝 공식의 직관적인 이름</p>
+                        <p><strong>스크리닝 조건</strong>: 최대 10개의 구체적인 조건들 (예: 저 PER 15 이하, 높은 ROE 15% 이상 등)</p>
+                        <p><strong>추천 종목</strong>: 조건을 가장 잘 충족하는 상위 5개 종목</p>
+                        <p><strong>점수</strong>: 각 종목이 조건을 얼마나 충족하는지 0~100 점수</p>
+                    </div>
+
+                    <h3 style="color: var(--accent-color); margin: 25px 0 15px;">🎯 사용 팁</h3>
+                    <ul style="margin-left: 20px;">
+                        <li>✅ <strong>구체적일수록 좋습니다</strong>: "좋은 종목" 보다 "저 PER, 고배당" 이 낫습니다</li>
+                        <li>✅ <strong>여러 번 시도하세요</strong>: 다양한 조건으로 검색하며 비교합니다</li>
+                        <li>✅ <strong>조건을 함께 보세요</strong>: 추천 조건을 이해하면 투자 전략이 명확해집니다</li>
+                        <li>✅ <strong>점수만 믿지 마세요</strong>: 실제 거래 전 기본적인 재무 분석은 필수입니다</li>
+                        <li>✅ <strong>데이터 확인</strong>: 샘플 데이터입니다. 실제 거래 시 최신 데이터를 반드시 확인하세요</li>
+                    </ul>
+
+                    <h3 style="color: var(--accent-color); margin: 25px 0 15px;">⚠️ 주의사항</h3>
+                    <ul style="margin-left: 20px;">
+                        <li>🔴 AI 분석은 참고만 하세요. 투자 판단은 본인의 책임입니다</li>
+                        <li>🔴 과거 데이터 기반이므로 미래를 보장하지 않습니다</li>
+                        <li>🔴 시장 상황, 금리, 환율 등 변수를 반드시 고려하세요</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 다크모드 토글
+        function toggleTheme() {
+            const body = document.body;
+            const isDarkMode = body.classList.contains('dark-mode');
+
+            if (isDarkMode) {
+                body.classList.remove('dark-mode');
+                body.classList.add('light-mode');
+                localStorage.setItem('theme', 'light');
+                document.querySelector('.theme-toggle').textContent = '🌙';
+            } else {
+                body.classList.remove('light-mode');
+                body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+                document.querySelector('.theme-toggle').textContent = '☀️';
+            }
+        }
+
+        // 페이지 로드 시 저장된 테마 적용
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            const body = document.body;
+            body.classList.remove('light-mode', 'dark-mode');
+            body.classList.add(savedTheme + '-mode');
+
+            if (savedTheme === 'dark') {
+                document.querySelector('.theme-toggle').textContent = '☀️';
+            }
+        });
+
+        // 앱 전환 (ORION / 스크리너)
+        function switchApp(app) {
+            const orionContent = document.getElementById('orion-content');
+            const screenerContent = document.getElementById('screener-content');
+            const orionHeader = document.getElementById('orion-header');
+            const screenerHeader = document.getElementById('screener-header');
+            const navOrion = document.getElementById('nav-orion');
+            const navScreener = document.getElementById('nav-screener');
+
+            if (app === 'orion') {
+                orionContent.style.display = 'block';
+                screenerContent.style.display = 'none';
+                orionHeader.style.display = 'block';
+                screenerHeader.style.display = 'none';
+                navOrion.classList.add('active');
+                navScreener.classList.remove('active');
+            } else if (app === 'screener') {
+                orionContent.style.display = 'none';
+                screenerContent.style.display = 'block';
+                orionHeader.style.display = 'none';
+                screenerHeader.style.display = 'block';
+                navOrion.classList.remove('active');
+                navScreener.classList.add('active');
+                // 시장 데이터 로드
+                loadScreenerMarkets();
+            }
+        }
+
+        // 탭 전환
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            if (tabName === 'types') {
+                loadPersonalityTypes();
+            }
+        }
+
+        // 시장 변경 시
+        async function onMarketChange() {
+            const market = document.getElementById('marketSelect').value;
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('resultContainer').style.display = 'none';
+
+            if (!market) {
+                document.getElementById('surveyContainer').innerHTML = '';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/get-survey/${market}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '설문 로드 실패');
+                }
+
+                renderSurvey(data.questions);
+                document.getElementById('submitBtn').style.display = 'block';
+            } catch (error) {
+                showError(`설문 로드 중 오류: ${error.message}`);
+            }
+        }
+
+        // 설문 렌더링
+        function renderSurvey(questions) {
+            const container = document.getElementById('surveyContainer');
+            container.innerHTML = '';
+
+            questions.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question-container';
+
+                let optionsHTML = '';
+                q.options.forEach((option, optIdx) => {
+                    const optionId = `${q.id}_opt${optIdx}`;
+                    // 객관식은 체크박스 (중복 선택 가능)
+                    optionsHTML += `
+                        <div class="option">
+                            <input type="checkbox" id="${optionId}" name="${q.id}" value="${option}" class="option-checkbox">
+                            <label for="${optionId}">${option}</label>
+                        </div>
+                    `;
+                });
+
+                // 주관식 입력창
+                const customInputHTML = `
+                    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                        <label style="font-size: 0.9em; color: #666; font-weight: 400;">✍️ 추가 의견 (선택):</label>
+                        <input type="text" class="survey-custom-input" id="${q.id}_custom"
+                               placeholder="당신의 투자 스타일을 자유롭게 서술해주세요..."
+                               style="width: 100%; padding: 10px; margin-top: 8px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.9em;">
+                    </div>
+                `;
+
+                questionDiv.innerHTML = `
+                    <div class="question-number">Q${index + 1}</div>
+                    <div class="question-text">${q.question}</div>
+                    <div style="color: #999; font-size: 0.85em; margin-bottom: 10px;">💡 중복 선택 가능</div>
+                    <div class="options">${optionsHTML}</div>
+                    ${customInputHTML}
+                `;
+
+                container.appendChild(questionDiv);
+            });
+        }
+
+        // 설문 제출
+        async function submitSurvey() {
+            const market = document.getElementById('marketSelect').value;
+
+            if (!market) {
+                showError('시장을 선택하세요');
+                return;
+            }
+
+            // 답변 수집
+            const answers = {};
+            for (let i = 1; i <= 10; i++) {
+                const qId = `q${i}`;
+
+                // 체크박스 (중복 선택 가능)
+                const checkboxes = document.querySelectorAll(`input[name="${qId}"].option-checkbox:checked`);
+                const selectedValues = Array.from(checkboxes).map(cb => cb.value);
+
+                // 주관식 입력
+                const customInput = document.getElementById(`${qId}_custom`).value.trim();
+
+                // 객관식과 주관식 중 하나라도 있으면 OK
+                if (selectedValues.length === 0 && !customInput) {
+                    showError(`Q${i}에 답변해주세요 (객관식 또는 주관식)`);
+                    return;
+                }
+
+                // 답변 저장 (객관식 + 주관식 함께)
+                answers[qId] = {
+                    choices: selectedValues,  // 선택한 객관식들
+                    custom: customInput       // 주관식 답변
+                };
+            }
+
+            // 로딩 표시
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        market_type: market,
+                        answers: answers
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '분석 실패');
+                }
+
+                // 결과 표시
+                showResult(data);
+                document.getElementById('loadingState').style.display = 'none';
+
+            } catch (error) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('submitBtn').style.display = 'block';
+                showError(`분석 중 오류: ${error.message}`);
+            }
+        }
+
+        // 결과 표시
+        function showResult(data) {
+            const { analysis, nickname, personality_info } = data;
+
+            if (personality_info) {
+                document.getElementById('resultPersonalitySymbol').textContent = personality_info.symbol.split('·')[0].trim();
+                document.getElementById('resultPersonalityName').textContent = personality_info.name;
+                document.getElementById('resultPersonalityStyle').textContent = personality_info.style;
+                document.getElementById('resultPersonalityDesc').textContent = personality_info.desc;
+
+                const traitsHTML = personality_info.traits
+                    .map(t => `<span class="trait-tag">#${t}</span>`)
+                    .join('');
+                document.getElementById('resultTraits').innerHTML = traitsHTML;
+            }
+
+            document.getElementById('resultAnalysis').textContent = analysis;
+            document.getElementById('resultContainer').style.display = 'block';
+        }
+
+        // 진단 초기화
+        function resetDiagnosis() {
+            document.getElementById('marketSelect').value = '';
+            document.getElementById('surveyContainer').innerHTML = '';
+            document.getElementById('submitBtn').style.display = 'none';
+            document.getElementById('resultContainer').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        // 에러 메시지 표시
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // 성향 유형 로드
+        async function loadPersonalityTypes() {
+            const markets = ['korean', 'abroad', 'coin'];
+            const marketLabels = {
+                korean: '📈 국내 주식',
+                abroad: '🌍 해외 주식',
+                coin: '₿ 암호화폐'
+            };
+
+            const container = document.getElementById('typesContainer');
+            container.innerHTML = '';
+
+            for (const market of markets) {
+                try {
+                    const response = await fetch(`/api/personality-types/${market}`);
+                    const data = await response.json();
+
+                    const marketDiv = document.createElement('div');
+                    marketDiv.innerHTML = `<h3 style="color: #0f3460; margin-bottom: 15px; font-size: 1.2em;">${marketLabels[market]}</h3>`;
+
+                    const typesGrid = document.createElement('div');
+                    typesGrid.style.display = 'grid';
+                    typesGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
+                    typesGrid.style.gap = '15px';
+                    typesGrid.style.marginBottom = '30px';
+
+                    data.types.forEach(type => {
+                        const typeCard = document.createElement('div');
+                        typeCard.style.cssText = `
+                            background: linear-gradient(135deg, #f9f9f9, #f0f0f0);
+                            border: 2px solid #e0e0e0;
+                            border-radius: 10px;
+                            padding: 0;
+                            transition: all 0.3s;
+                            overflow: hidden;
+                        `;
+                        typeCard.onmouseover = () => {
+                            typeCard.style.borderColor = '#0f3460';
+                            typeCard.style.boxShadow = '0 5px 15px rgba(15, 52, 96, 0.2)';
+                        };
+                        typeCard.onmouseout = () => {
+                            typeCard.style.borderColor = '#e0e0e0';
+                            typeCard.style.boxShadow = 'none';
+                        };
+
+                        typeCard.innerHTML = `
+                            <div style="background: #f0f0f0; padding: 40px 20px; text-align: center; border-bottom: 2px solid #e0e0e0;">
+                                <div style="font-size: 3em; margin-bottom: 5px;">📸</div>
+                                <p style="color: #999; font-size: 0.8em;">사진</p>
+                            </div>
+                            <div style="padding: 20px;">
+                                <div style="font-size: 1.8em; margin-bottom: 10px;">${type.symbol.split('·')[0].trim()}</div>
+                                <h4 style="color: #0f3460; margin-bottom: 8px; font-size: 1em;">${type.name}</h4>
+                                <p style="color: #666; font-size: 0.85em; margin-bottom: 10px; font-weight: 500;">${type.style}</p>
+                                <p style="color: #555; font-size: 0.85em; line-height: 1.5; margin-bottom: 10px;">${type.desc}</p>
+                                <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                                    ${type.traits.slice(0, 2).map(t => `<span class="trait-tag" style="font-size: 0.8em; padding: 5px 10px;">#${t}</span>`).join('')}
+                                </div>
+                            </div>
+                        `;
+
+                        typesGrid.appendChild(typeCard);
+                    });
+
+                    marketDiv.appendChild(typesGrid);
+                    container.appendChild(marketDiv);
+                } catch (error) {
+                    console.error(`성향 유형 로드 실패: ${market}`, error);
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        //  스크리너 함수
+        // ══════════════════════════════════════════════════════════════════
+
+        // 스크리너 탭 전환
+        function switchScreenerTab(tab) {
+            document.querySelectorAll('#screener-content .tab-content').forEach(t => {
+                t.style.display = 'none';
+            });
+            document.querySelectorAll('#screener-content .tab-button').forEach(b => {
+                b.classList.remove('active');
+            });
+
+            document.getElementById(`screener-${tab}`).style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        // 시장 데이터 로드
+        async function loadScreenerMarkets() {
+            // 기본 시장 옵션 (API 호출 없이 하드코딩)
+            const markets = [
+                { value: 'ALL', label: '-- 선택하세요 --' },
+                { value: 'KOSPI', label: '📈 코스피' },
+                { value: 'KOSDAQ', label: '📊 코스닥' },
+                { value: 'NASDAQ', label: '🌍 나스닥' }
+            ];
+
+            const select = document.getElementById('screenerMarket');
+            select.innerHTML = '';
+
+            markets.forEach(market => {
+                const option = document.createElement('option');
+                option.value = market.value;
+                option.textContent = market.label;
+                select.appendChild(option);
+            });
+        }
+
+        // 종목 검색
+        async function screenerSearch() {
+            const market = document.getElementById('screenerMarket').value;
+            const query = document.getElementById('screenerQuery').value.trim();
+
+            if (!market || market === 'ALL') {
+                showScreenerError('시장을 선택하세요');
+                return;
+            }
+
+            if (!query) {
+                showScreenerError('종목에 대해 자유롭게 질문해주세요');
+                return;
+            }
+
+            document.getElementById('screenerLoading').style.display = 'block';
+            document.getElementById('screenerResult').style.display = 'none';
+            document.getElementById('screenerErrorMessage').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/screener/recommend', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        market: market,
+                        query: query
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || '검색 실패');
+                }
+
+                displayScreenerResult(data);
+                document.getElementById('screenerLoading').style.display = 'none';
+                document.getElementById('screenerResult').style.display = 'block';
+
+            } catch (error) {
+                document.getElementById('screenerLoading').style.display = 'none';
+                showScreenerError(`검색 중 오류: ${error.message}`);
+            }
+        }
+
+        // 검색 결과 표시
+        function displayScreenerResult(data) {
+            const { recommendation, stocks, conditions } = data;
+
+            // 추천 공식 및 조건
+            const recDiv = document.getElementById('screenerRecommendation');
+            let conditionsHTML = '';
+            if (conditions && conditions.length > 0) {
+                conditionsHTML = `
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid rgba(15, 52, 96, 0.2);">
+                        <h4 style="color: var(--accent-color); margin-bottom: 15px;">🔍 적용된 스크리닝 조건 (${conditions.length}가지)</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                            ${conditions.map(cond => `
+                                <div style="background: rgba(15, 52, 96, 0.05); padding: 12px; border-radius: 5px; border-left: 3px solid var(--accent-color);">
+                                    <p style="font-weight: 600; color: var(--accent-color); margin-bottom: 5px;">📌 ${cond.name}</p>
+                                    <p style="color: var(--text-primary); font-size: 0.9em; line-height: 1.5;">${cond.description}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            recDiv.innerHTML = `
+                <div style="background: linear-gradient(135deg, #f0f5ff, #e8f1ff); padding: 30px; border-radius: 10px; border-left: 4px solid var(--accent-color);">
+                    <h3 style="color: var(--accent-color); margin-bottom: 10px;">📋 AI 분석 공식</h3>
+                    <h2 style="color: var(--accent-color); margin-bottom: 10px;">${recommendation.formula_name}</h2>
+                    <p style="color: var(--text-primary); font-size: 1em; line-height: 1.6;">${recommendation.description}</p>
+                    ${conditionsHTML}
+                </div>
+            `;
+
+            // 종목 목록 (최대 5개)
+            const displayCount = Math.min(stocks.length, 5);
+            const stocksDiv = document.getElementById('screenerStocks');
+            stocksDiv.innerHTML = `<h3 style="margin-bottom: 20px; color: var(--accent-color);">📊 추천 종목 Top ${displayCount}</h3>`;
+
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;';
+
+            stocks.slice(0, 5).forEach((stock, idx) => {
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    background: var(--bg-secondary);
+                    padding: 20px;
+                    border-radius: 10px;
+                    border: 1px solid var(--border-color);
+                    transition: all 0.3s;
+                `;
+
+                card.onmouseover = () => {
+                    card.style.transform = 'translateY(-5px)';
+                    card.style.boxShadow = '0 5px 15px rgba(15, 52, 96, 0.2)';
+                };
+                card.onmouseout = () => {
+                    card.style.transform = 'none';
+                    card.style.boxShadow = 'none';
+                };
+
+                const scoreColor = stock.score > 70 ? '#4CAF50' : stock.score > 50 ? '#FF9800' : '#f44336';
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                        <div>
+                            <h4 style="color: var(--accent-color); margin-bottom: 5px;">${stock.name}</h4>
+                            <p style="color: var(--text-secondary); font-size: 0.9em;">${stock.symbol}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 2em; font-weight: bold; color: ${scoreColor};">${stock.score.toFixed(0)}</div>
+                            <p style="color: var(--text-secondary); font-size: 0.8em;">점수</p>
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg-primary); padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.9em;">
+                        <p>💰 가격: ${stock.price.toLocaleString('ko-KR')}원</p>
+                        <p>PER: ${stock.per.toFixed(2)} | PBR: ${stock.pbr.toFixed(2)}</p>
+                        <p>ROE: ${stock.roe.toFixed(2)}%</p>
+                    </div>
+
+                    ${stock.tags.length > 0 ? `
+                        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+                            ${stock.tags.map(t => `<span class="trait-tag" style="font-size: 0.75em; padding: 3px 8px;">#${t}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                `;
+
+                grid.appendChild(card);
+            });
+
+            stocksDiv.appendChild(grid);
+        }
+
+        // 스크리너 에러 표시
+        function showScreenerError(message) {
+            const errorDiv = document.getElementById('screenerErrorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // 스크리너 초기화
+        function resetScreener() {
+            document.getElementById('screenerMarket').value = 'ALL';
+            document.getElementById('screenerQuery').value = '';
+            document.getElementById('screenerResult').style.display = 'none';
+            document.getElementById('screenerErrorMessage').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

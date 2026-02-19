@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 ORION 투자 진단 시스템 v0.4  ─  터미널
-주식(국내/해외) · 코인  +  OpenAI GPT-4o
+주식(국내/해외) · 코인  +  OpenAI GPT-3.5-turbo
 """
 
 import sys
@@ -157,7 +157,7 @@ def run_grade_mode():
 
     # AI 등급 분석
     bar("AI 융합 분석 중")
-    print("  GPT-4o에 분석 요청 중...\n")
+    print("  GPT-3.5-turbo에 분석 요청 중...\n")
     try:
         analysis, score, tier = ai_analyze(metrics, answers, market_type, openai_key)
     except Exception as e:
@@ -202,7 +202,7 @@ def run_personality_mode():
 
     # AI 성향 분석
     bar("AI 투자 성향 분석 중")
-    print("  GPT-4o에 분석 요청 중...\n")
+    print("  GPT-3.5-turbo에 분석 요청 중...\n")
     try:
         analysis, nickname = ai_personality_analyze(answers, market_type, openai_key)
     except Exception as e:
@@ -251,7 +251,7 @@ def _save_result(market_type, exchange_id, metrics, extra_header, analysis):
 def main():
     bar("ORION 투자 진단 시스템 v0.4")
     print("  밤하늘의 사냥꾼, 당신의 투자 본능을 분석합니다.")
-    print("  주식(국내/해외·한국투자증권)  ·  코인(업비트)  +  OpenAI GPT-4o\n")
+    print("  주식(국내/해외·한국투자증권)  ·  코인(업비트)  +  OpenAI GPT-3.5-turbo\n")
 
     mode = choose(
         "시작 방식을 선택하세요:",

@@ -118,7 +118,7 @@ def ai_analyze(metrics: dict, survey: dict, market_type: str, openai_key: str):
 
     client   = OpenAI(api_key=openai_key)
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": system},
             {"role": "user",   "content": user},
@@ -287,7 +287,7 @@ def ai_personality_analyze(survey: dict, market_type: str, openai_key: str):
 
     client   = OpenAI(api_key=openai_key)
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": system},
             {"role": "user",   "content": user},
