@@ -1,0 +1,34 @@
+{
+  "AMD": {
+    "total_analyses": 1,
+    "avg_rating": 5.0,
+    "ratings": [
+      5
+    ],
+    "common_issues": [],
+    "recent_feedback": [
+      {
+        "timestamp": "2026-02-16_19-59-29",
+        "verdict": "UNKNOWN",
+        "rating": 5,
+        "comment": "AMD는 AI 산업에서 CPU, GPU의 2인임. 이런 것 또한 고려하면 좋을 듯"
+      }
+    ]
+  },
+  "WMT": {
+    "total_analyses": 1,
+    "avg_rating": 5.0,
+    "ratings": [
+      5
+    ],
+    "common_issues": [],
+    "recent_feedback": [
+      {
+        "timestamp": "2026-02-16_20-05-15",
+        "verdict": "UNKNOWN",
+        "rating": 5,
+        "comment": "L에서 피어중 가장 선두임을 조사하는 것도 좋아보임"
+      }
+    ]
+  }
+}
