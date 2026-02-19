@@ -10,7 +10,7 @@ O'Neil 기준:
 
 import pandas as pd
 from typing import Dict
-from src.utils import find_financial_row, format_large_number, NET_INCOME_NAMES, REVENUE_NAMES
+from analysis.utils import find_financial_row, format_large_number, NET_INCOME_NAMES, REVENUE_NAMES
 
 ONEIL_RULE = """
 ### C — Current Quarterly Earnings per Share (O'Neil 원문 규칙)

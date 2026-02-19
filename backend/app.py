@@ -26,8 +26,10 @@ import json as json_mod
 PROJECT_ROOT = Path(__file__).resolve().parent
 ENGINE_DIR = PROJECT_ROOT.parent / "engine"
 
-# .env 로드
-load_dotenv(PROJECT_ROOT.parent / ".env")
+# .env 로드 (ai_assistant/ 루트 또는 engine/ 중 존재하는 것 사용)
+_env_root = PROJECT_ROOT.parent / ".env"
+_env_engine = ENGINE_DIR / ".env"
+load_dotenv(_env_root if _env_root.exists() else _env_engine)
 
 # sys.path 설정
 # - PROJECT_ROOT: from analysis.analyzer import ... (분석 모드)

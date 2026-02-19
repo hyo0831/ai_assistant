@@ -8,14 +8,14 @@ CAN SLIM Fundamental Analysis — 통합 오케스트레이터
 import yfinance as yf
 from typing import Dict
 
-from src.canslim import c_current_earnings
-from src.canslim import a_annual_earnings
-from src.canslim import n_new_catalyst
-from src.canslim import s_supply_demand
-from src.canslim import l_leader_laggard
-from src.canslim import i_institutional
-from src.canslim import m_market_direction
-from src.utils import get_currency_info
+from analysis.canslim import c_current_earnings
+from analysis.canslim import a_annual_earnings
+from analysis.canslim import n_new_catalyst
+from analysis.canslim import s_supply_demand
+from analysis.canslim import l_leader_laggard
+from analysis.canslim import i_institutional
+from analysis.canslim import m_market_direction
+from analysis.utils import get_currency_info
 
 
 def run_analysis(ticker: str) -> Dict:

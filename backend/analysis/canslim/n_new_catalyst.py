@@ -5,7 +5,7 @@ N - New Products, New Management, New Highs
 import os
 import json
 from typing import Dict, Optional
-from src.utils import format_price
+from analysis.utils import format_price
 
 ONEIL_RULE = """
 ### N — New Products, New Management, New Highs off Properly Formed Bases (O'Neil 원문 규칙)

@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 
-from src.config import RESULTS_DIR
+from analysis.config import RESULTS_DIR
 
 
 def save_result(ticker: str, analysis: str, fundamental_data: dict = None) -> str:

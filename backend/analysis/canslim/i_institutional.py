@@ -5,7 +5,7 @@ I - Institutional Sponsorship
 """
 
 from typing import Dict
-from src.utils import is_korean_stock
+from analysis.utils import is_korean_stock
 
 ONEIL_RULE = """
 ### I — Institutional Sponsorship (O'Neil 원문 규칙)

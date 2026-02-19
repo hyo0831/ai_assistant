@@ -4,7 +4,7 @@ A - Annual Earnings Increases
 
 import pandas as pd
 from typing import Dict
-from src.utils import find_financial_row, format_large_number, NET_INCOME_NAMES
+from analysis.utils import find_financial_row, format_large_number, NET_INCOME_NAMES
 
 ONEIL_RULE = """
 ### A — Annual Earnings Increases (O'Neil 원문 규칙)

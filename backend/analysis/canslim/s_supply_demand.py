@@ -6,7 +6,7 @@ S - Supply and Demand
 
 import pandas as pd
 from typing import Dict
-from src.utils import format_large_number, get_market_cap_label, SHARE_COUNT_NAMES
+from analysis.utils import format_large_number, get_market_cap_label, SHARE_COUNT_NAMES
 
 ONEIL_RULE = """
 ### S — Supply and Demand (O'Neil 원문 규칙)

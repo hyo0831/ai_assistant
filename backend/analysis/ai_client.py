@@ -8,8 +8,8 @@ import time
 from google import genai
 from google.genai import types
 
-from src.config import GEMINI_API_KEY, LANGUAGE
-from src.system_prompt import WILLIAM_ONEIL_FUNDAMENTAL_PERSONA
+from analysis.config import GEMINI_API_KEY, LANGUAGE
+from analysis.system_prompt import WILLIAM_ONEIL_FUNDAMENTAL_PERSONA
 
 
 def _get_language_instruction() -> str:
