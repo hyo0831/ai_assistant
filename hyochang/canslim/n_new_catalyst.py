@@ -19,7 +19,6 @@ ONEIL_RULE = """
 - The "Great Paradox": What seems too high and risky usually goes higher; what seems low and cheap usually goes lower
 - Stocks on the new-high list tend to go higher; stocks on the new-low list tend to go lower
 - Buy when a stock is making new price highs as it breaks out of a proper base on increased volume
-- If the stock is more than 5-10% above the exact buy point, avoid it
 """.strip()
 
 

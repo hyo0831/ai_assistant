@@ -9,6 +9,38 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 from typing import List, Dict, Optional
+import math
+
+
+# ====================================================================
+# 패턴 감지 임계값 상수 (Pattern Detection Thresholds)
+# 하드코딩된 매직 넘버 대신 이 상수들을 사용 (R1: 상수 중앙화)
+# ====================================================================
+CUP_MIN_DEPTH_PCT = 12              # Cup 최소 깊이 (%)
+CUP_MAX_DEPTH_PCT_BULL = 33         # 강세장 Cup 최대 깊이 (%)
+CUP_MAX_DEPTH_PCT_BEAR = 50         # 약세장 Cup 최대 깊이 (%)
+HANDLE_MAX_DEPTH_PCT = 15           # 핸들 최대 깊이 (%)
+HANDLE_VOL_DRYUP_RATIO = 0.8        # 핸들 거래량 건조 기준 (base 평균 대비)
+RIGHT_PEAK_MIN_RATIO = 0.80         # 오른쪽 고점 최소 비율 (왼쪽 고점 대비)
+U_SHAPE_MIN_WEEKS = 3               # U자형 바닥 최소 주수 (오닐 권장 3~4주)
+DB_UNDERCUT_MIN_PCT = -3.0          # Double Bottom 언더컷 하한 (%)
+DB_UNDERCUT_MAX_PCT = 3.0           # Double Bottom 언더컷 상한 (%)
+FLAT_BASE_MAX_CORRECTION_PCT = 15   # Flat Base 최대 조정폭 (%)
+FLAT_BASE_MIN_PRIOR_GAIN_PCT = 20   # Flat Base 이전 최소 상승폭 (%)
+HTF_MIN_SURGE_PCT = 100             # High Tight Flag 최소 상승폭 (%)
+HTF_MIN_CORRECTION_PCT = 10         # High Tight Flag 최소 조정폭 (%)
+HTF_MAX_CORRECTION_PCT = 25         # High Tight Flag 최대 조정폭 (%)
+MIN_QUALITY_THRESHOLD = 55          # 패턴 최소 품질 점수 (0~100)
+RS_TANH_SCALE = 30                  # RS Rating 비선형 변환 스케일
+
+
+# ====================================================================
+# 공통 유효성 검사 헬퍼 (R2: 중복 코드 제거)
+# ====================================================================
+
+def _check_min_data(df: pd.DataFrame, min_rows: int) -> bool:
+    """최소 데이터 기간 검증 헬퍼"""
+    return len(df) >= min_rows
 
 
 # ====================================================================
@@ -36,8 +68,8 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
     """
     patterns = []
 
-    if len(df) < min_weeks + 2:
-        return patterns
+    if not _check_min_data(df, min_weeks + 2):
+        return []
 
     closes = df['Close'].values
     highs = df['High'].values
@@ -78,15 +110,17 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
             cup_low_rel = mid_start + np.argmin(window_lows[mid_start:mid_end])
             cup_low = window_lows[cup_low_rel]
 
-            # 3. 깊이 계산
+            # 3. 깊이 계산 (A1: 강세장/약세장 기준 분리)
             depth_pct = ((left_peak - cup_low) / left_peak) * 100
-            if depth_pct < 12 or depth_pct > 50:
+            if depth_pct < CUP_MIN_DEPTH_PCT or depth_pct > CUP_MAX_DEPTH_PCT_BEAR:
                 continue
+            # 깊이 레벨: NORMAL(강세장 기준 이내), DEEP(약세장에서만 허용)
+            depth_level = "NORMAL" if depth_pct <= CUP_MAX_DEPTH_PCT_BULL else "DEEP"
 
-            # 4. U자형 검증 (V자형 배제)
+            # 4. U자형 검증 (V자형 배제) — A2: 오닐 권장 최소 3~4주
             bottom_zone = cup_low * 1.03
             weeks_near_bottom = np.sum(window_lows[mid_start:mid_end] <= bottom_zone)
-            if weeks_near_bottom < 2:
+            if weeks_near_bottom < U_SHAPE_MIN_WEEKS:
                 continue
 
             # 5. 오른쪽 고점 찾기 (핸들 시작점)
@@ -98,12 +132,13 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
             right_peak = window_highs[right_peak_rel]
 
             # 오른쪽 고점이 왼쪽 고점의 80% 이상이어야 함
-            if right_peak < left_peak * 0.80:
+            if right_peak < left_peak * RIGHT_PEAK_MIN_RATIO:
                 continue
 
             # 6. 핸들 감지 (오른쪽 고점 이후)
-            handle_start = i + right_peak_rel
-            if handle_start >= len(df) - 1:
+            # B1 Fix: i + right_peak_rel은 절대 인덱스; 핸들은 오른쪽 고점 다음 바부터 시작
+            handle_start = i + right_peak_rel + 1
+            if handle_start >= len(df):
                 continue
 
             handle_end = min(handle_start + 10, len(df))
@@ -116,7 +151,7 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
             handle_depth = ((right_peak - handle_low) / right_peak) * 100
 
             # 핸들 깊이: 15% 이내
-            if handle_depth > 15:
+            if handle_depth > HANDLE_MAX_DEPTH_PCT:
                 continue
 
             # 핸들이 전체 base 상단 1/2에 있는지 확인
@@ -127,7 +162,7 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
             handle_volumes = volumes[handle_start:handle_end]
             base_avg_vol = np.mean(window_volumes)
             handle_avg_vol = np.mean(handle_volumes) if len(handle_volumes) > 0 else base_avg_vol
-            vol_dryup = handle_avg_vol < base_avg_vol * 0.8
+            vol_dryup = handle_avg_vol < base_avg_vol * HANDLE_VOL_DRYUP_RATIO
 
             # 8. 피벗 포인트 계산
             pivot_point = right_peak
@@ -152,6 +187,7 @@ def detect_cup_with_handle(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int 
                     'right_peak_date': dates[i + right_peak_rel].strftime('%Y-%m-%d'),
                     'handle_low': float(handle_low),
                     'depth_pct': round(depth_pct, 1),
+                    'depth_level': depth_level,
                     'handle_depth_pct': round(handle_depth, 1),
                     'duration_weeks': end_idx - i,
                     'pivot_point': round(float(pivot_point), 2),
@@ -236,8 +272,8 @@ def detect_double_bottom(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int = 
     """
     patterns = []
 
-    if len(df) < min_weeks:
-        return patterns
+    if not _check_min_data(df, min_weeks):
+        return []
 
     highs = df['High'].values
     lows = df['Low'].values
@@ -283,14 +319,14 @@ def detect_double_bottom(df: pd.DataFrame, min_weeks: int = 7, max_weeks: int = 
             bottom2_rel = second_start + np.argmin(window_lows[second_start:])
             bottom2 = window_lows[bottom2_rel]
 
-            # 5. 두 번째 바닥이 첫 번째와 비슷한지 확인
+            # 5. 두 번째 바닥이 첫 번째와 비슷한지 확인 (A3: 오닐 기준 ±3% 이내)
             undercut_pct = ((bottom1 - bottom2) / bottom1) * 100
-            if undercut_pct < -5 or undercut_pct > 10:
+            if undercut_pct < DB_UNDERCUT_MIN_PCT or undercut_pct > DB_UNDERCUT_MAX_PCT:
                 continue
 
             # 6. 깊이 확인
             depth = ((start_peak - min(bottom1, bottom2)) / start_peak) * 100
-            if depth < 12 or depth > 50:
+            if depth < CUP_MIN_DEPTH_PCT or depth > CUP_MAX_DEPTH_PCT_BEAR:
                 continue
 
             # 7. 가운데 고점이 충분히 반등했는지 확인
@@ -362,8 +398,8 @@ def detect_flat_base(df: pd.DataFrame, min_weeks: int = 5) -> List[Dict]:
     """
     patterns = []
 
-    if len(df) < min_weeks + 20:
-        return patterns
+    if not _check_min_data(df, min_weeks + 20):
+        return []
 
     highs = df['High'].values
     lows = df['Low'].values
@@ -388,7 +424,7 @@ def detect_flat_base(df: pd.DataFrame, min_weeks: int = 5) -> List[Dict]:
                 continue
             correction = ((high - low) / high) * 100
 
-            if correction > 15:
+            if correction > FLAT_BASE_MAX_CORRECTION_PCT:
                 continue
 
             # 이전에 20%+ 상승이 있었는지 확인
@@ -401,7 +437,7 @@ def detect_flat_base(df: pd.DataFrame, min_weeks: int = 5) -> List[Dict]:
                 continue
             prior_gain = ((closes[actual_start_idx] - prior_low) / prior_low) * 100
 
-            if prior_gain < 20:
+            if prior_gain < FLAT_BASE_MIN_PRIOR_GAIN_PCT:
                 continue
 
             # 품질 점수
@@ -460,12 +496,16 @@ def detect_high_tight_flag(df: pd.DataFrame) -> List[Dict]:
     """
     patterns = []
 
-    if len(df) < 12:
-        return patterns
+    if not _check_min_data(df, 12):
+        return []
 
     highs = df['High'].values
     lows = df['Low'].values
     dates = df.index
+
+    # B2 Fix: 모든 HTF를 추가하는 대신 best_quality 1개만 반환 (다른 패턴과 통일)
+    best_pattern = None
+    best_quality = 0
 
     for i in range(8, len(df) - 3):
         for lookback in range(4, 9):
@@ -476,7 +516,7 @@ def detect_high_tight_flag(df: pd.DataFrame) -> List[Dict]:
             peak_price = np.max(highs[i - lookback:i + 1])
             gain = ((peak_price - start_price) / start_price) * 100
 
-            if gain < 100:
+            if gain < HTF_MIN_SURGE_PCT:
                 continue
 
             # 이후 3~5주 횡보 확인
@@ -488,19 +528,36 @@ def detect_high_tight_flag(df: pd.DataFrame) -> List[Dict]:
             flag_low = np.min(flag_lows)
             flag_correction = ((peak_price - flag_low) / peak_price) * 100
 
-            if 10 <= flag_correction <= 25:
-                patterns.append({
-                    'type': 'High Tight Flag',
-                    'start_date': dates[i - lookback].strftime('%Y-%m-%d'),
-                    'end_date': dates[flag_end - 1].strftime('%Y-%m-%d'),
-                    'surge_pct': round(gain, 1),
-                    'surge_weeks': lookback,
-                    'flag_correction_pct': round(flag_correction, 1),
-                    'flag_weeks': flag_end - i,
-                    'pivot_point': round(float(peak_price), 2),
-                    'rarity': 'VERY RARE - strongest pattern',
-                    'quality_score': 90  # HTF는 기본적으로 높은 품질
-                })
+            if HTF_MIN_CORRECTION_PCT <= flag_correction <= HTF_MAX_CORRECTION_PCT:
+                # 품질 점수: 급등폭과 타이트한 횡보 기준
+                quality = 85
+                if gain >= 200:
+                    quality += 5
+                elif gain >= 150:
+                    quality += 3
+                if flag_correction <= 15:
+                    quality += 5
+                elif flag_correction <= 20:
+                    quality += 2
+                quality = min(99, quality)
+
+                if quality > best_quality:
+                    best_quality = quality
+                    best_pattern = {
+                        'type': 'High Tight Flag',
+                        'start_date': dates[i - lookback].strftime('%Y-%m-%d'),
+                        'end_date': dates[flag_end - 1].strftime('%Y-%m-%d'),
+                        'surge_pct': round(gain, 1),
+                        'surge_weeks': lookback,
+                        'flag_correction_pct': round(flag_correction, 1),
+                        'flag_weeks': flag_end - i,
+                        'pivot_point': round(float(peak_price), 2),
+                        'rarity': 'VERY RARE - strongest pattern',
+                        'quality_score': quality
+                    }
+
+    if best_pattern:
+        patterns.append(best_pattern)
 
     return patterns
 
@@ -868,11 +925,11 @@ def analyze_relative_strength(df: pd.DataFrame, ticker: str) -> Dict:
             weighted_stock = q1 * 0.4 + q2 * 0.2 + q3 * 0.2 + q4 * 0.2
             weighted_sp = sp_q1 * 0.4 + sp_q2 * 0.2 + sp_q3 * 0.2 + sp_q4 * 0.2
 
-            # 상대 성과를 0-99 스케일로 변환
-            # 시장 대비 초과 성과가 높을수록 RS가 높음
+            # 상대 성과를 0-99 스케일로 변환 (B3/A4: tanh 기반 비선형 변환)
+            # 선형 변환 대비 장점: 극단값에서 자연스럽게 포화, ±30%에서 RS 88/12 수준
             relative_perf = weighted_stock - weighted_sp
-            # 대략적 변환: -50% 이하 = 1, 0% = 50, +50% 이상 = 99
-            rs_rating = int(min(99, max(1, 50 + relative_perf * 1.0)))
+            rs_raw = 50 + 49 * math.tanh(relative_perf / RS_TANH_SCALE)
+            rs_rating = int(min(99, max(1, round(rs_raw))))
             result['rs_rating'] = rs_rating
 
         # RS 추세 분석 (최근 10주 RS Line 방향)
@@ -952,8 +1009,7 @@ def run_pattern_detection(df: pd.DataFrame, ticker: str = "") -> Dict:
     htf_patterns = detect_high_tight_flag(df)
     all_patterns.extend(htf_patterns)
 
-    # 최고 품질 패턴 선택 (최소 임계값 55점 이상만 인정)
-    MIN_QUALITY_THRESHOLD = 55
+    # 최고 품질 패턴 선택 (임계값: 모듈 상수 MIN_QUALITY_THRESHOLD)
     best_pattern = None
     if all_patterns:
         candidate = max(all_patterns, key=lambda p: p.get('quality_score', 0))

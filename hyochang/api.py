@@ -56,9 +56,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# R3: CORS 오리진 설정 — 환경변수 CORS_ALLOWED_ORIGINS로 재정의 가능
+# 예) CORS_ALLOWED_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"
+_cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "")
+CORS_ORIGINS = (
+    [o.strip() for o in _cors_env.split(",") if o.strip()]
+    if _cors_env
+    else [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+    ]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
