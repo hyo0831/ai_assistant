@@ -129,17 +129,28 @@ def format_for_prompt(data: Dict) -> str:
         if idx.get('current_price'):
             lines.append(f"  Current: {idx['current_price']}")
         if idx.get('vs_50dma') is not None:
-            lines.append(f"  vs 50-DMA: {idx['vs_50dma']:+.1f}%")
+            v = idx['vs_50dma']
+            flag = " (above)" if v > 0 else " (below - caution)"
+            lines.append(f"  vs 50-DMA: {v:+.1f}%{flag}")
         if idx.get('vs_200dma') is not None:
-            lines.append(f"  vs 200-DMA: {idx['vs_200dma']:+.1f}%")
+            v = idx['vs_200dma']
+            flag = " (above)" if v > 0 else " (below - bearish)"
+            lines.append(f"  vs 200-DMA: {v:+.1f}%{flag}")
         if idx.get('trend') != 'N/A':
             lines.append(f"  Trend: {idx['trend']}")
-        lines.append(f"  Distribution Days (5wk): {idx.get('distribution_days_5wk', 0)}")
+
+        dist_count = idx.get('distribution_days_5wk', 0)
+        if dist_count >= 5:
+            lines.append(f"  Distribution Days (5wk): {dist_count} (DANGER - market top signal)")
+        elif dist_count >= 3:
+            lines.append(f"  Distribution Days (5wk): {dist_count} (CAUTION - accumulating)")
+        else:
+            lines.append(f"  Distribution Days (5wk): {dist_count} (healthy)")
 
         dist_list = idx.get('recent_distribution', [])
         if dist_list:
-            recent_3 = dist_list[-3:]
-            for d in recent_3:
+            lines.append(f"  Recent distribution days (oldest→recent):")
+            for d in dist_list[-5:]:
                 lines.append(f"    {d['date']}: {d['change']:+.2f}%")
 
     # 종합 경고

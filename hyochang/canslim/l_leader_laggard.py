@@ -61,17 +61,31 @@ def format_for_prompt(data: Dict) -> str:
         lines.append(f"Industry: {data['industry']}")
 
     bm = data.get('benchmark', 'Market')
-    if data.get('rs_rating') is not None:
-        lines.append(f"RS Rating (vs {bm}): {data['rs_rating']}/99")
+    rs = data.get('rs_rating')
+    if rs is not None:
+        if rs >= 85:
+            lines.append(f"RS Rating (vs {bm}): {rs}/99 (LEADER - O'Neil buy zone 85+)")
+        elif rs >= 70:
+            lines.append(f"RS Rating (vs {bm}): {rs}/99 (above average)")
+        else:
+            lines.append(f"RS Rating (vs {bm}): {rs}/99 (LAGGARD - O'Neil: never buy below 70)")
     if data.get('rs_trend'):
         lines.append(f"RS Trend (10-week): {data['rs_trend']}")
     if data.get('rs_new_high') is not None:
-        lines.append(f"RS New High: {'Yes' if data['rs_new_high'] else 'No'}")
+        lines.append(f"RS New High: {'Yes - BULLISH signal' if data['rs_new_high'] else 'No'}")
 
+    # 기간별 성과 (단기→장기 순서로 표시)
     rs_data = data.get('rs_vs_benchmark', {})
-    for period, vals in rs_data.items():
-        bm_ret = vals.get('benchmark_return', vals.get('sp500_return', 0))
-        lines.append(f"  {period}: Stock {vals['stock_return']:+.1f}% vs {bm} {bm_ret:+.1f}% (Outperformance: {vals['outperformance']:+.1f}%)")
+    period_order = ['3M', '6M', '1Y', '2Y', '3Y']
+    sorted_periods = sorted(rs_data.keys(), key=lambda x: period_order.index(x) if x in period_order else 99)
+    if sorted_periods:
+        lines.append(f"Performance vs {bm} (short→long term):")
+        for period in sorted_periods:
+            vals = rs_data[period]
+            bm_ret = vals.get('benchmark_return', vals.get('sp500_return', 0))
+            out = vals['outperformance']
+            flag = " [OUTPERFORM]" if out > 0 else " [UNDERPERFORM]"
+            lines.append(f"  {period}: Stock {vals['stock_return']:+.1f}% vs {bm} {bm_ret:+.1f}% (Outperformance: {out:+.1f}%){flag}")
 
     if data.get('data_note'):
         lines.append(f"Note: {data['data_note']}")

@@ -34,7 +34,8 @@ def _print_analysis_result(analysis: str, rs_info: dict = None):
         print("-" * 40)
 
     print()
-    print(analysis)
+    safe_analysis = analysis.encode('cp949', errors='replace').decode('cp949')
+    print(safe_analysis)
     print()
     print("=" * 80)
     print(f"차트 저장 위치 (Chart saved): {CHART_OUTPUT_PATH}")

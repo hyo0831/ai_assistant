@@ -59,9 +59,19 @@ def format_for_prompt(data: Dict) -> str:
     lines = ["### I - Institutional Sponsorship"]
 
     if data.get('inst_holders_pct') is not None:
-        lines.append(f"Institutional Ownership: {data['inst_holders_pct']}%")
+        pct = data['inst_holders_pct']
+        if pct >= 70:
+            lines.append(f"Institutional Ownership: {pct}% (WARNING: overowned - excessive selling risk)")
+        elif pct >= 30:
+            lines.append(f"Institutional Ownership: {pct}% (healthy institutional interest)")
+        else:
+            lines.append(f"Institutional Ownership: {pct}% (LOW - insufficient institutional support)")
     if data.get('inst_holders_count') is not None:
-        lines.append(f"Number of Institutional Holders: {data['inst_holders_count']}")
+        count = data['inst_holders_count']
+        if count >= 20:
+            lines.append(f"Number of Institutional Holders: {count} (meets O'Neil minimum of 20+)")
+        else:
+            lines.append(f"Number of Institutional Holders: {count} (BELOW O'Neil minimum of 20)")
 
     holders = data.get('top_holders', [])
     if holders:
