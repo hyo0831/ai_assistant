@@ -1,3 +1,16 @@
+# 공통
 requests
 pandas
 openai
+
+# 업비트
+PyJWT
+
+# 빗썸
+pybithumb
+
+# 비트겟
+ccxt
+
+# 키움 (Windows 전용, 키움 HTS 설치 필요)
+# pykiwoom

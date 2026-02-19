@@ -1,0 +1,87 @@
+1. kiwoom.py (키움증권 - 국내/해외)
+키움은 pykiwoom 라이브러리를 사용하면 복잡한 OCX 컨트롤을 훨씬 쉽게 다룰 수 있습니다.
+
+Python
+# kiwoom.py
+from pykiwoom.kiwoom import Kiwoom
+
+def get_kiwoom_data(market_type="KR"):
+    kiwoom = Kiwoom()
+    kiwoom.CommConnect(block=True) # 로그인
+    
+    # 1. 계좌 번호 가져오기
+    account_list = kiwoom.GetLoginInfo("ACCNO")
+    account_num = account_list[0]
+    
+    # 2. 국내(KR) 또는 해외(US) 데이터 선택적 호출
+    if market_type == "KR":
+        # 국내 주식 잔고 및 매매 기록 (TR: opt10075 등 활용)
+        print(f"[System] 국내 계좌 {account_num} 데이터 동기화 중...")
+        data = kiwoom.block_request("opt10075", 계좌번호=account_num, 매매구분=0, 체결구분=0)
+    else:
+        # 해외 주식 잔고 및 매매 기록 (TR: opw30001 등 활용)
+        print(f"[System] 해외 계좌 {account_num} 데이터 동기화 중...")
+        data = kiwoom.block_request("opw30001", 계좌번호=account_num, 비밀번호="", 조회구분=2)
+        
+    return data # 분석용 RAW 데이터 반환
+2. bithumb.py (빗썸 - 가상자산)
+빗썸은 pybithumb 라이브러리를 통해 매우 간결하게 데이터를 가져올 수 있습니다.
+
+Python
+# bithumb.py
+import pybithumb
+
+def get_bithumb_data(api_key, api_secret):
+    # API 연결
+    bithumb = pybithumb.Bithumb(api_key, api_secret)
+    
+    # 1. 잔고 조회
+    balance = bithumb.get_balance("BTC")
+    
+    # 2. 내 매매 이력 가져오기 (분석의 핵심 데이터)
+    # 최근 완료된 주문 내역 추출
+    orders = bithumb.get_trading_history("BTC")
+    
+    print(f"[System] 빗썸 자산 및 매매 이력 로드 완료")
+    return {"balance": balance, "orders": orders}
+3. bitget.py (비트겟 - 해외 선물/현물)
+비트겟은 글로벌 표준인 ccxt 라이브러리를 사용하면 가장 안정적입니다. (선물 레버리지 데이터 추출 가능)
+
+Python
+# bitget.py
+import ccxt
+
+def get_bitget_data(api_key, api_secret, api_passphrase):
+    # 비트겟 API 연결 (선물 거래소 설정)
+    bitget = ccxt.bitget({
+        'apiKey': api_key,
+        'secret': api_secret,
+        'password': api_passphrase,
+        'enableRateLimit': True,
+        'options': {'defaultType': 'swap'} # 선물 계정 데이터 우선
+    })
+    
+    # 1. 현재 포지션 및 잔고 조회
+    balance = bitget.fetch_balance()
+    
+    # 2. 과거 매매 기록 (Trade History) 추출
+    # AI가 레버리지 사용 습관을 분석할 수 있는 핵심 소스
+    trades = bitget.fetch_my_trades(symbol=None) 
+    
+    print(f"[System] 비트겟 선물/현물 데이터 동기화 완료")
+    return {"balance": balance, "trades": trades}
+💡 이 코드들을 CIL(CLI) 프로젝트에 합치는 방법
+이제 메인 실행 파일(main.py)에서 사용자가 선택한 시장에 따라 위 함수들을 딸깍하고 호출하면 됩니다.
+
+Python
+# main.py (예시)
+import kiwoom, bithumb, bitget
+
+def start_data_sync(choice):
+    if choice == "1": # 국내주식
+        raw_data = kiwoom.get_kiwoom_data(market_type="KR")
+    elif choice == "2": # 비트겟
+        raw_data = bitget.get_bitget_data("KEY", "SECRET", "PASS")
+    
+    # 이후 raw_data를 위에서 만든 AI 분석 프롬프트에 실어 보냄
+    print(f"로드된 데이터 건수: {len(raw_data)}")
