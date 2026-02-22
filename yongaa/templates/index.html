@@ -812,31 +812,40 @@
         function toggleTheme() {
             const body = document.body;
             const isDarkMode = body.classList.contains('dark-mode');
+            const themeBtn = document.querySelector('.theme-toggle');
 
             if (isDarkMode) {
                 body.classList.remove('dark-mode');
                 body.classList.add('light-mode');
                 localStorage.setItem('theme', 'light');
-                document.querySelector('.theme-toggle').textContent = '🌙';
+                if (themeBtn) themeBtn.textContent = '🌙';
             } else {
                 body.classList.remove('light-mode');
                 body.classList.add('dark-mode');
                 localStorage.setItem('theme', 'dark');
-                document.querySelector('.theme-toggle').textContent = '☀️';
+                if (themeBtn) themeBtn.textContent = '☀️';
             }
         }
 
         // 페이지 로드 시 저장된 테마 적용
-        window.addEventListener('DOMContentLoaded', () => {
+        function initializeTheme() {
             const savedTheme = localStorage.getItem('theme') || 'light';
             const body = document.body;
             body.classList.remove('light-mode', 'dark-mode');
             body.classList.add(savedTheme + '-mode');
 
-            if (savedTheme === 'dark') {
-                document.querySelector('.theme-toggle').textContent = '☀️';
+            const themeBtn = document.querySelector('.theme-toggle');
+            if (themeBtn) {
+                themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
             }
-        });
+        }
+
+        // DOM이 준비되면 테마 초기화
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeTheme);
+        } else {
+            initializeTheme();
+        }
 
         // 앱 전환 (ORION / 스크리너)
         function switchApp(app) {
@@ -847,20 +856,25 @@
             const navOrion = document.getElementById('nav-orion');
             const navScreener = document.getElementById('nav-screener');
 
+            if (!orionContent || !screenerContent) {
+                console.error('콘텐츠 요소를 찾을 수 없습니다');
+                return;
+            }
+
             if (app === 'orion') {
                 orionContent.style.display = 'block';
                 screenerContent.style.display = 'none';
-                orionHeader.style.display = 'block';
-                screenerHeader.style.display = 'none';
-                navOrion.classList.add('active');
-                navScreener.classList.remove('active');
+                if (orionHeader) orionHeader.style.display = 'block';
+                if (screenerHeader) screenerHeader.style.display = 'none';
+                if (navOrion) navOrion.classList.add('active');
+                if (navScreener) navScreener.classList.remove('active');
             } else if (app === 'screener') {
                 orionContent.style.display = 'none';
                 screenerContent.style.display = 'block';
-                orionHeader.style.display = 'none';
-                screenerHeader.style.display = 'block';
-                navOrion.classList.remove('active');
-                navScreener.classList.add('active');
+                if (orionHeader) orionHeader.style.display = 'none';
+                if (screenerHeader) screenerHeader.style.display = 'block';
+                if (navOrion) navOrion.classList.remove('active');
+                if (navScreener) navScreener.classList.add('active');
                 // 시장 데이터 로드
                 loadScreenerMarkets();
             }
@@ -868,29 +882,43 @@
 
         // 탭 전환
         function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
+            try {
+                document.querySelectorAll('#orion-content .tab-content').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                document.querySelectorAll('#orion-content .tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
 
-            document.getElementById(tabName).classList.add('active');
-            event.target.classList.add('active');
+                const tabEl = document.getElementById(tabName);
+                if (tabEl) {
+                    tabEl.classList.add('active');
+                }
 
-            if (tabName === 'types') {
-                loadPersonalityTypes();
+                if (event && event.target) {
+                    event.target.classList.add('active');
+                }
+
+                if (tabName === 'types') {
+                    loadPersonalityTypes();
+                }
+            } catch (error) {
+                console.error('탭 전환 오류:', error);
             }
         }
 
         // 시장 변경 시
         async function onMarketChange() {
             const market = document.getElementById('marketSelect').value;
-            document.getElementById('submitBtn').style.display = 'none';
-            document.getElementById('resultContainer').style.display = 'none';
+            const submitBtn = document.getElementById('submitBtn');
+            const resultContainer = document.getElementById('resultContainer');
+            const surveyContainer = document.getElementById('surveyContainer');
+
+            if (submitBtn) submitBtn.style.display = 'none';
+            if (resultContainer) resultContainer.style.display = 'none';
 
             if (!market) {
-                document.getElementById('surveyContainer').innerHTML = '';
+                if (surveyContainer) surveyContainer.innerHTML = '';
                 return;
             }
 
@@ -903,7 +931,7 @@
                 }
 
                 renderSurvey(data.questions);
-                document.getElementById('submitBtn').style.display = 'block';
+                if (submitBtn) submitBtn.style.display = 'block';
             } catch (error) {
                 showError(`설문 로드 중 오류: ${error.message}`);
             }
@@ -912,6 +940,10 @@
         // 설문 렌더링
         function renderSurvey(questions) {
             const container = document.getElementById('surveyContainer');
+            if (!container) {
+                console.error('설문 컨테이너를 찾을 수 없습니다');
+                return;
+            }
             container.innerHTML = '';
 
             questions.forEach((q, index) => {
@@ -987,9 +1019,13 @@
             }
 
             // 로딩 표시
-            document.getElementById('loadingState').style.display = 'block';
-            document.getElementById('submitBtn').style.display = 'none';
-            document.getElementById('errorMessage').style.display = 'none';
+            const loadingState = document.getElementById('loadingState');
+            const submitBtn = document.getElementById('submitBtn');
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (loadingState) loadingState.style.display = 'block';
+            if (submitBtn) submitBtn.style.display = 'none';
+            if (errorMessage) errorMessage.style.display = 'none';
 
             try {
                 const response = await fetch('/api/analyze', {
@@ -1012,8 +1048,10 @@
                 document.getElementById('loadingState').style.display = 'none';
 
             } catch (error) {
-                document.getElementById('loadingState').style.display = 'none';
-                document.getElementById('submitBtn').style.display = 'block';
+                const loadingState = document.getElementById('loadingState');
+                const submitBtn = document.getElementById('submitBtn');
+                if (loadingState) loadingState.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'block';
                 showError(`분석 중 오류: ${error.message}`);
             }
         }
@@ -1023,35 +1061,56 @@
             const { analysis, nickname, personality_info } = data;
 
             if (personality_info) {
-                document.getElementById('resultPersonalitySymbol').textContent = personality_info.symbol.split('·')[0].trim();
-                document.getElementById('resultPersonalityName').textContent = personality_info.name;
-                document.getElementById('resultPersonalityStyle').textContent = personality_info.style;
-                document.getElementById('resultPersonalityDesc').textContent = personality_info.desc;
+                const symbolEl = document.getElementById('resultPersonalitySymbol');
+                const nameEl = document.getElementById('resultPersonalityName');
+                const styleEl = document.getElementById('resultPersonalityStyle');
+                const descEl = document.getElementById('resultPersonalityDesc');
+                const traitsEl = document.getElementById('resultTraits');
 
-                const traitsHTML = personality_info.traits
-                    .map(t => `<span class="trait-tag">#${t}</span>`)
-                    .join('');
-                document.getElementById('resultTraits').innerHTML = traitsHTML;
+                if (symbolEl) symbolEl.textContent = personality_info.symbol.split('·')[0].trim();
+                if (nameEl) nameEl.textContent = personality_info.name;
+                if (styleEl) styleEl.textContent = personality_info.style;
+                if (descEl) descEl.textContent = personality_info.desc;
+
+                if (traitsEl) {
+                    const traitsHTML = personality_info.traits
+                        .map(t => `<span class="trait-tag">#${t}</span>`)
+                        .join('');
+                    traitsEl.innerHTML = traitsHTML;
+                }
             }
 
-            document.getElementById('resultAnalysis').textContent = analysis;
-            document.getElementById('resultContainer').style.display = 'block';
+            const analysisEl = document.getElementById('resultAnalysis');
+            if (analysisEl) analysisEl.textContent = analysis;
+
+            const resultContainerEl = document.getElementById('resultContainer');
+            if (resultContainerEl) resultContainerEl.style.display = 'block';
         }
 
         // 진단 초기화
         function resetDiagnosis() {
-            document.getElementById('marketSelect').value = '';
-            document.getElementById('surveyContainer').innerHTML = '';
-            document.getElementById('submitBtn').style.display = 'none';
-            document.getElementById('resultContainer').style.display = 'none';
-            document.getElementById('errorMessage').style.display = 'none';
+            const marketSelect = document.getElementById('marketSelect');
+            const surveyContainer = document.getElementById('surveyContainer');
+            const submitBtn = document.getElementById('submitBtn');
+            const resultContainer = document.getElementById('resultContainer');
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (marketSelect) marketSelect.value = '';
+            if (surveyContainer) surveyContainer.innerHTML = '';
+            if (submitBtn) submitBtn.style.display = 'none';
+            if (resultContainer) resultContainer.style.display = 'none';
+            if (errorMessage) errorMessage.style.display = 'none';
         }
 
         // 에러 메시지 표시
         function showError(message) {
             const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            } else {
+                console.error('오류:', message);
+            }
         }
 
         // 성향 유형 로드
@@ -1064,6 +1123,10 @@
             };
 
             const container = document.getElementById('typesContainer');
+            if (!container) {
+                console.error('타입 컨테이너를 찾을 수 없습니다');
+                return;
+            }
             container.innerHTML = '';
 
             for (const market of markets) {
@@ -1132,15 +1195,25 @@
 
         // 스크리너 탭 전환
         function switchScreenerTab(tab) {
-            document.querySelectorAll('#screener-content .tab-content').forEach(t => {
-                t.style.display = 'none';
-            });
-            document.querySelectorAll('#screener-content .tab-button').forEach(b => {
-                b.classList.remove('active');
-            });
+            try {
+                document.querySelectorAll('#screener-content .tab-content').forEach(t => {
+                    t.style.display = 'none';
+                });
+                document.querySelectorAll('#screener-content .tab-button').forEach(b => {
+                    b.classList.remove('active');
+                });
 
-            document.getElementById(`screener-${tab}`).style.display = 'block';
-            event.target.classList.add('active');
+                const tabEl = document.getElementById(`screener-${tab}`);
+                if (tabEl) {
+                    tabEl.style.display = 'block';
+                }
+
+                if (event && event.target) {
+                    event.target.classList.add('active');
+                }
+            } catch (error) {
+                console.error('스크리너 탭 전환 오류:', error);
+            }
         }
 
         // 시장 데이터 로드
@@ -1179,9 +1252,13 @@
                 return;
             }
 
-            document.getElementById('screenerLoading').style.display = 'block';
-            document.getElementById('screenerResult').style.display = 'none';
-            document.getElementById('screenerErrorMessage').style.display = 'none';
+            const screenerLoading = document.getElementById('screenerLoading');
+            const screenerResult = document.getElementById('screenerResult');
+            const screenerErrorMessage = document.getElementById('screenerErrorMessage');
+
+            if (screenerLoading) screenerLoading.style.display = 'block';
+            if (screenerResult) screenerResult.style.display = 'none';
+            if (screenerErrorMessage) screenerErrorMessage.style.display = 'none';
 
             try {
                 const response = await fetch('/api/screener/recommend', {
@@ -1200,11 +1277,14 @@
                 }
 
                 displayScreenerResult(data);
-                document.getElementById('screenerLoading').style.display = 'none';
-                document.getElementById('screenerResult').style.display = 'block';
+                const screenerLoading = document.getElementById('screenerLoading');
+                const screenerResult = document.getElementById('screenerResult');
+                if (screenerLoading) screenerLoading.style.display = 'none';
+                if (screenerResult) screenerResult.style.display = 'block';
 
             } catch (error) {
-                document.getElementById('screenerLoading').style.display = 'none';
+                const screenerLoading = document.getElementById('screenerLoading');
+                if (screenerLoading) screenerLoading.style.display = 'none';
                 showScreenerError(`검색 중 오류: ${error.message}`);
             }
         }
@@ -1215,6 +1295,10 @@
 
             // 추천 공식 및 조건
             const recDiv = document.getElementById('screenerRecommendation');
+            if (!recDiv) {
+                console.error('추천 컨테이너를 찾을 수 없습니다');
+                return;
+            }
             let conditionsHTML = '';
             if (conditions && conditions.length > 0) {
                 conditionsHTML = `
@@ -1244,6 +1328,10 @@
             // 종목 목록 (최대 5개)
             const displayCount = Math.min(stocks.length, 5);
             const stocksDiv = document.getElementById('screenerStocks');
+            if (!stocksDiv) {
+                console.error('종목 컨테이너를 찾을 수 없습니다');
+                return;
+            }
             stocksDiv.innerHTML = `<h3 style="margin-bottom: 20px; color: var(--accent-color);">📊 추천 종목 Top ${displayCount}</h3>`;
 
             const grid = document.createElement('div');
@@ -1304,16 +1392,25 @@
         // 스크리너 에러 표시
         function showScreenerError(message) {
             const errorDiv = document.getElementById('screenerErrorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.style.display = 'block';
+            } else {
+                console.error('스크리너 오류:', message);
+            }
         }
 
         // 스크리너 초기화
         function resetScreener() {
-            document.getElementById('screenerMarket').value = 'ALL';
-            document.getElementById('screenerQuery').value = '';
-            document.getElementById('screenerResult').style.display = 'none';
-            document.getElementById('screenerErrorMessage').style.display = 'none';
+            const screenerMarket = document.getElementById('screenerMarket');
+            const screenerQuery = document.getElementById('screenerQuery');
+            const screenerResult = document.getElementById('screenerResult');
+            const screenerErrorMessage = document.getElementById('screenerErrorMessage');
+
+            if (screenerMarket) screenerMarket.value = 'ALL';
+            if (screenerQuery) screenerQuery.value = '';
+            if (screenerResult) screenerResult.style.display = 'none';
+            if (screenerErrorMessage) screenerErrorMessage.style.display = 'none';
         }
     </script>
 </body>
