@@ -9,7 +9,7 @@ Google Gemini API(멀티모달)를 사용해 차트 이미지 + 기본적 분석
 ## Architecture
 
 ```
-hyochang/
+backend/services/chart_canslim_service/
 ├── core/               # 핵심 비즈니스 로직 (FastAPI에서도 import 가능)
 │   ├── config.py           # 환경변수, API 키, 경로 설정
 │   ├── data_fetcher.py     # Yahoo Finance 데이터 수집, 이동평균 계산

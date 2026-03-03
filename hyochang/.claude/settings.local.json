@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(pip install:*)",
-      "Bash($env:GEMINI_API_KEY=\"AIzaSyD2f3jsLwMqR4dt6fy8tOU_QCBSO3NVGmc\")",
-      "Bash(export GEMINI_API_KEY=\"AIzaSyD2f3jsLwMqR4dt6fy8tOU_QCBSO3NVGmc\")"
-    ]
-  }
-}

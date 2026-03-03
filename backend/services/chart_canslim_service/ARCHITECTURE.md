@@ -441,7 +441,7 @@ VERSION_NAME = "Enhanced Pattern Detection"
 ## 파일 구조
 
 ```
-hyochang/
+backend/services/chart_canslim_service/
 ├── main.py                    # 메인 실행 파일 (V1/V2 모드)
 ├── pattern_detector.py        # 패턴 감지 알고리즘
 ├── system_prompt.py           # AI 페르소나 정의

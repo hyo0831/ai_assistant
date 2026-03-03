@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 """
 O'Neil AI 투자 어시스턴트 — 통합 FastAPI 서버
 트레이딩 모드(trading/) + 분석 모드(src/)를 하나의 API로 제공
-배포 루트: yanghee/
+백엔드 루트: backend/services/integrated_investment_service/
 """
 
 import os
@@ -22,9 +24,10 @@ from dotenv import load_dotenv
 import threading
 import json as json_mod
 
-# 프로젝트 루트 = yanghee/
+# 프로젝트 루트 = backend/services/integrated_investment_service/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TRADING_DIR = PROJECT_ROOT / "trading"
+REPO_ROOT = PROJECT_ROOT.parent.parent.parent
 
 # .env 로드
 load_dotenv(PROJECT_ROOT / ".env")
@@ -130,8 +133,8 @@ class TradingResponse(BaseModel):
     ticker: str
     mode: str
     analysis: str
-    pattern_data: dict | None = None
-    chart_base64: str | None = None
+    pattern_data: Optional[dict] = None
+    chart_base64: Optional[str] = None
     timestamp: str
 
 
@@ -547,6 +550,6 @@ async def get_user_votes(session_id: str = "anonymous"):
 
 
 # ── 정적 파일 서빙 (프론트엔드) ─────────────────────
-FRONTEND_DIR = PROJECT_ROOT / "frontend"
+FRONTEND_DIR = REPO_ROOT / "frontend" / "integrated_ui"
 if FRONTEND_DIR.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="frontend")

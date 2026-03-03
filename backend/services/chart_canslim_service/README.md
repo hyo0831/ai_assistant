@@ -18,7 +18,7 @@
 ## 📂 디렉토리 구조
 
 ```
-hyochang/
+backend/services/chart_canslim_service/
 │
 ├── main.py                      # 진입점 (python main.py로 실행)
 ├── cli.py                       # CLI 실행 로직 (main_v1, main_v2, main_compare, main)
@@ -46,8 +46,8 @@ hyochang/
 │   ├── i_institutional.py       # I: 기관 보유
 │   └── m_market_direction.py    # M: 시장 방향 (Distribution Day)
 │
-├── frontend/
-│   └── index.html               # 웹 UI (TradingView 차트 + AI 분석 패널)
+├── (Web UI moved)
+│   └── ../../../frontend/chart_canslim_ui/index.html  # 웹 UI (TradingView 차트 + AI 분석 패널)
 ├── results/                     # 분석 결과 자동 저장 (chart.png + JSON)
 ├── feedback/                    # 사용자 피드백 데이터 (AI 학습용)
 ├── scripts/
@@ -283,7 +283,7 @@ python main.py
 ```bash
 uvicorn api:app --reload
 # → http://localhost:8000
-# → frontend/index.html을 브라우저에서 열어 사용
+# → ../../../frontend/chart_canslim_ui/index.html 을 브라우저에서 열어 사용
 ```
 
 ### 5. 사전 환경 검증
@@ -364,6 +364,6 @@ python scripts/quick_test.py
 
 ---
 
-**Created by:** hyochang team
+**Created by:** chart_canslim_service team
 **Last Updated:** 2026-02-17
 **License:** MIT (Educational Purpose)

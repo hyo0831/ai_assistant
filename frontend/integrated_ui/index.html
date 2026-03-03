@@ -168,6 +168,9 @@
         let currentPage = '홈';
         let modalMode = null;  // 선택된 모드 ('trading' or 'analysis')
         let searchResults = [];
+        const API_BASE = (window.location.port === '3000' || window.location.port === '3001')
+            ? 'http://localhost:8000'
+            : window.location.origin;
 
         // ── Google 로그인 시스템 ──────────────────────────────
         const GOOGLE_CLIENT_ID = '1073242702988-dov3ulf0t4crskrnf2hmsgg0n3fbells.apps.googleusercontent.com';
@@ -289,7 +292,7 @@
             }
             listEl.innerHTML = history.slice(0, 8).map(h => `
                 <div class="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-slate-50 cursor-pointer"
-                     onclick="closeUserDropdown(); window.location.href='/${h.mode}.html?ticker=${encodeURIComponent(h.ticker)}&autostart=true'">
+                     onclick="closeUserDropdown(); window.location.href='/app.html?mode=${h.mode}&ticker=${encodeURIComponent(h.ticker)}&autostart=true'">
                     <div class="flex items-center gap-2">
                         <span class="text-xs font-bold text-slate-800">${h.ticker}</span>
                         <span class="text-[10px] px-1.5 py-0.5 rounded-full ${h.mode === 'trading' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}">${h.mode === 'trading' ? '트레이딩' : '분석'}</span>
@@ -387,9 +390,9 @@
 
         function goToApp(ticker) {
             if (ticker && ticker.trim()) {
-                window.location.href = `/trading.html?ticker=${encodeURIComponent(ticker.trim().toUpperCase())}&autostart=true`;
+                window.location.href = `/app.html?mode=trading&ticker=${encodeURIComponent(ticker.trim().toUpperCase())}&autostart=true`;
             } else {
-                window.location.href = '/trading.html';
+                window.location.href = '/app.html?mode=trading';
             }
         }
 
@@ -401,7 +404,7 @@
                 return;
             }
             try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`);
+                const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query.trim())}`);
                 const data = await res.json();
                 searchResults = data.results || [];
 
@@ -419,6 +422,11 @@
                 }
             } catch(e) {
                 console.log('Search error:', e);
+                const dropdown = document.getElementById('search-results');
+                if (dropdown) {
+                    dropdown.innerHTML = `<div class="px-4 py-2 text-sm text-red-500">검색 API 연결 실패: 서버 주소를 확인하세요.</div>`;
+                    dropdown.style.display = 'block';
+                }
             }
         }
 
@@ -485,9 +493,9 @@
             localStorage.setItem('selectedMode', modalMode);
             localStorage.setItem('selectedTicker', ticker);
             if (modalMode === 'trading') {
-                window.location.href = `/trading.html?ticker=${encodeURIComponent(ticker)}&autostart=true`;
+                window.location.href = `/app.html?mode=trading&ticker=${encodeURIComponent(ticker)}&autostart=true`;
             } else {
-                window.location.href = `/analysis.html?ticker=${encodeURIComponent(ticker)}&autostart=true`;
+                window.location.href = `/app.html?mode=analysis&ticker=${encodeURIComponent(ticker)}&autostart=true`;
             }
         }
 
@@ -671,8 +679,8 @@
         async function loadPolls() {
             try {
                 const [pollsRes, votesRes] = await Promise.all([
-                    fetch('/api/community/polls'),
-                    fetch(`/api/community/user_votes?session_id=${SESSION_ID}`)
+                    fetch(`${API_BASE}/api/community/polls`),
+                    fetch(`${API_BASE}/api/community/user_votes?session_id=${SESSION_ID}`)
                 ]);
                 const pollsData = await pollsRes.json();
                 const votesData = await votesRes.json();
@@ -693,7 +701,7 @@
                 { ticker: "GOOGL", name: "Alphabet Inc.", analyst: "윌리엄 오닐 AI", verdict: "BUY NOW", date: "2026-02-17", bullish: 18, neutral: 7, bearish: 2 },
             ];
             try {
-                await fetch('/api/community/seed', {
+                await fetch(`${API_BASE}/api/community/seed`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ items: defaults })
@@ -703,7 +711,7 @@
 
         async function castVote(ticker, voteType) {
             try {
-                const res = await fetch('/api/community/vote', {
+                const res = await fetch(`${API_BASE}/api/community/vote`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ticker, vote_type: voteType, session_id: SESSION_ID })
@@ -805,11 +813,11 @@
 
                     <!-- 분석 바로가기 -->
                     <div class="mt-3 pt-3 border-t border-slate-100 flex gap-2">
-                        <button onclick="window.location.href='/trading.html?ticker=${encodeURIComponent(ticker)}&autostart=true'"
+                        <button onclick="window.location.href='/app.html?mode=trading&ticker=${encodeURIComponent(ticker)}&autostart=true'"
                             class="flex-1 text-xs text-indigo-600 font-bold py-1.5 rounded-lg hover:bg-indigo-50 transition-all">
                             📈 트레이딩 분석
                         </button>
-                        <button onclick="window.location.href='/analysis.html?ticker=${encodeURIComponent(ticker)}&autostart=true'"
+                        <button onclick="window.location.href='/app.html?mode=analysis&ticker=${encodeURIComponent(ticker)}&autostart=true'"
                             class="flex-1 text-xs text-indigo-600 font-bold py-1.5 rounded-lg hover:bg-indigo-50 transition-all">
                             📊 펀더멘털 분석
                         </button>
@@ -855,7 +863,7 @@
         async function adminDeleteTicker(ticker) {
             if (!confirm(`"${ticker}" 종목을 삭제하시겠습니까?`)) return;
             try {
-                const res = await fetch(`/api/community/ticker/${encodeURIComponent(ticker)}?admin_key=${ADMIN_KEY}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/community/ticker/${encodeURIComponent(ticker)}?admin_key=${ADMIN_KEY}`, { method: 'DELETE' });
                 if (res.ok) {
                     delete communityPolls[ticker];
                     renderCommunityCards();
@@ -868,7 +876,7 @@
         async function adminResetVotes(ticker) {
             if (!confirm(`"${ticker}" 투표를 초기화하시겠습니까?`)) return;
             try {
-                const res = await fetch(`/api/community/reset_votes/${encodeURIComponent(ticker)}?admin_key=${ADMIN_KEY}`, { method: 'POST' });
+                const res = await fetch(`${API_BASE}/api/community/reset_votes/${encodeURIComponent(ticker)}?admin_key=${ADMIN_KEY}`, { method: 'POST' });
                 if (res.ok) {
                     if (communityPolls[ticker]) {
                         communityPolls[ticker].bullish = 0;
@@ -886,7 +894,7 @@
         async function adminResetAll() {
             if (!confirm('전체 투표 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
             try {
-                const res = await fetch('/api/community/reset_all', {
+                const res = await fetch(`${API_BASE}/api/community/reset_all`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ admin_key: ADMIN_KEY })
@@ -1133,11 +1141,11 @@
 
                     <!-- 분석 바로가기 -->
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="window.location.href='/trading.html?ticker=${encodeURIComponent(s.symbol)}&autostart=true'"
+                        <button onclick="window.location.href='/app.html?mode=trading&ticker=${encodeURIComponent(s.symbol)}&autostart=true'"
                             class="py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-all">
                             📈 트레이딩 분석
                         </button>
-                        <button onclick="window.location.href='/analysis.html?ticker=${encodeURIComponent(s.symbol)}&autostart=true'"
+                        <button onclick="window.location.href='/app.html?mode=analysis&ticker=${encodeURIComponent(s.symbol)}&autostart=true'"
                             class="py-2 text-xs font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all">
                             📊 펀더멘털 분석
                         </button>
@@ -1166,7 +1174,7 @@
             const sortBy = document.getElementById('sc-sort')?.value || 'score';
 
             try {
-                const res = await fetch('/api/screener/scan', {
+                const res = await fetch(`${API_BASE}/api/screener/scan`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

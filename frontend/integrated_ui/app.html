@@ -33,7 +33,9 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        const API_BASE = window.location.origin;
+        const API_BASE = (window.location.port === '3000' || window.location.port === '3001')
+            ? 'http://localhost:8000'
+            : window.location.origin;
 
         const Icon = ({ name, className }) => {
             const ref = useRef(null);

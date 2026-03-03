@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 """
 윌리엄 오닐 AI 투자 어시스턴트 — 로컬 FastAPI 서버
-hyochang/core/ 모듈을 직접 사용 (최신 한국어 강제 버전)
+backend/services/chart_canslim_service/core/ 모듈을 직접 사용 (최신 한국어 강제 버전)
 """
 
 import os
@@ -10,6 +12,7 @@ import numpy as np
 from datetime import datetime
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from typing import Optional
 
 load_dotenv()
 
@@ -107,8 +110,8 @@ class AnalyzeResponse(BaseModel):
     ticker: str
     mode: str
     analysis: str
-    pattern_data: dict | None = None
-    chart_base64: str | None = None
+    pattern_data: Optional[dict] = None
+    chart_base64: Optional[str] = None
     timestamp: str
 
 
