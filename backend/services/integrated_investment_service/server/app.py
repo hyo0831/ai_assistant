@@ -187,9 +187,11 @@ SCREENER_CACHE_LOCK = threading.Lock()
 SCREENER_DEFAULT_MARKET = "US"
 SCREENER_DEFAULT_MIN_MARKET_CAP = 500_000_000.0
 SCREENER_DEFAULT_PROVIDER = "claude"
-SCREENER_DEFAULT_SORT = "score"
-SCREENER_DEFAULT_RESULTS = 100
 SCREENER_REFRESH_POLICY = "매주 월요일 오전 9시(KST) 갱신"
+SCREENER_PHASE1_WORKERS = int(os.environ.get("SCREENER_PHASE1_WORKERS", "4"))
+SCREENER_PHASE2_WORKERS = int(os.environ.get("SCREENER_PHASE2_WORKERS", "1"))
+SCREENER_BATCH_SIZE = int(os.environ.get("SCREENER_BATCH_SIZE", "80"))
+SCREENER_BATCH_PAUSE_SEC = float(os.environ.get("SCREENER_BATCH_PAUSE_SEC", "0.5"))
 
 
 def _load_screener_cache() -> Optional[dict]:
@@ -256,6 +258,13 @@ def _safe_float(value, default=0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _chunked(seq: list, size: int):
+    if size <= 0:
+        size = 1
+    for i in range(0, len(seq), size):
+        yield seq[i:i + size]
 
 
 def _percentile_rank(values: list[float], current: float) -> float:
@@ -417,6 +426,38 @@ def _fetch_symbol_snapshot(symbol: str, bench_6m: float, bench_12m: float, inclu
         "market_cap": int(market_cap) if market_cap > 0 else 0,
         "rs_raw": round(rs_raw, 4),
     }
+
+
+def _collect_snapshots_throttled(
+    symbols: list[str],
+    bench_6m: float,
+    bench_12m: float,
+    include_info: bool,
+    workers: int,
+    batch_size: int,
+    pause_sec: float,
+) -> dict[str, dict]:
+    """느린 배치 스캔: 대유니버스 호출량을 분산해 rate limit를 완화."""
+    workers = max(1, workers)
+    batch_size = max(1, batch_size)
+    out = {}
+    for chunk in _chunked(symbols, batch_size):
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            futures = {
+                ex.submit(_fetch_symbol_snapshot, sym, bench_6m, bench_12m, include_info): sym
+                for sym in chunk
+            }
+            for f in as_completed(futures):
+                sym = futures[f]
+                try:
+                    row = f.result()
+                    if row:
+                        out[sym] = row
+                except Exception:
+                    continue
+        if pause_sec > 0:
+            time.sleep(pause_sec)
+    return out
 
 
 def _fetch_yahoo_growth_snapshot(symbol: str) -> dict:
@@ -758,19 +799,16 @@ def _compute_screener(req: ScreenerRequest) -> dict:
     bench_6m = ((b_now / b_6m) - 1.0) if b_6m > 0 else 0.0
     bench_12m = ((b_now / b_12m) - 1.0) if b_12m > 0 else 0.0
 
-    snapshots = []
-    with ThreadPoolExecutor(max_workers=24) as ex:
-        futures = {
-            ex.submit(_fetch_symbol_snapshot, symbol, bench_6m, bench_12m, False): symbol
-            for symbol in symbols
-        }
-        for f in as_completed(futures):
-            try:
-                row = f.result()
-                if row:
-                    snapshots.append(row)
-            except Exception:
-                continue
+    phase1_map = _collect_snapshots_throttled(
+        symbols=symbols,
+        bench_6m=bench_6m,
+        bench_12m=bench_12m,
+        include_info=False,
+        workers=SCREENER_PHASE1_WORKERS,
+        batch_size=SCREENER_BATCH_SIZE,
+        pause_sec=SCREENER_BATCH_PAUSE_SEC,
+    )
+    snapshots = list(phase1_map.values())
 
     if not snapshots:
         raise HTTPException(status_code=500, detail="종목 데이터를 불러오지 못했습니다.")
@@ -796,20 +834,15 @@ def _compute_screener(req: ScreenerRequest) -> dict:
     # 대유니버스에서는 상위 후보만 info 조회 후 시총 필터 적용
     candidate_n = max(prefilter_count, max_results * 2, ai_rerank_count * 2)
     candidates = ranked[:min(candidate_n, len(ranked))]
-    enriched_map = {}
-    with ThreadPoolExecutor(max_workers=2) as ex:
-        futures = {
-            ex.submit(_fetch_symbol_snapshot, row["symbol"], bench_6m, bench_12m, True): row["symbol"]
-            for row in candidates
-        }
-        for f in as_completed(futures):
-            symbol = futures[f]
-            try:
-                info_row = f.result()
-                if info_row:
-                    enriched_map[symbol] = info_row
-            except Exception:
-                continue
+    enriched_map = _collect_snapshots_throttled(
+        symbols=[row["symbol"] for row in candidates],
+        bench_6m=bench_6m,
+        bench_12m=bench_12m,
+        include_info=True,
+        workers=SCREENER_PHASE2_WORKERS,
+        batch_size=max(20, SCREENER_BATCH_SIZE // 2),
+        pause_sec=max(0.8, SCREENER_BATCH_PAUSE_SEC),
+    )
 
     filtered = []
     for row in candidates:

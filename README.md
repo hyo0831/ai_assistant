@@ -1,54 +1,68 @@
-# AI Assistant Project
+# AI Assistant Monorepo
 
-AI 투자 분석 서비스를 단일 프로젝트 구조로 정리한 모노레포입니다.
+AI 투자 분석 서비스(트레이딩 + 펀더멘털 + 스크리너) 모노레포입니다.
 
-## Top-Level Structure
+## Structure
 
-- `frontend/`
-  - `chart_canslim_ui/`: 차트 기반 분석 UI
-  - `integrated_ui/`: 통합 서비스 UI
+- `frontend/integrated_ui/`: 통합 웹 UI
+- `backend/services/integrated_investment_service/`: 통합 API 서버(FastAPI)
+- `backend/services/chart_canslim_service/`: 차트 중심 분석 서비스
+- `backend/services/kis_trading_diagnostics/`: KIS 진단 서비스
+- `scripts/deploy_cloud_run.sh`: Cloud Run 배포 스크립트
 
-- `backend/services/`
-  - `chart_canslim_service/`: 차트 + 패턴 + CAN SLIM 분석 백엔드
-  - `integrated_investment_service/`: 통합 API 서버(트레이딩 + 펀더멘털)
-  - `kis_trading_diagnostics/`: KIS 거래내역 기반 매매 진단
+## Integrated Service (핵심)
 
-## Quick Start
+경로: `backend/services/integrated_investment_service`
 
-- Chart CANSLIM 서비스
-  - `cd backend/services/chart_canslim_service`
-  - `python main.py`
-  - API: `uvicorn api:app --reload`
+- `server/app.py`
+  - `POST /api/trading/analyze`: 차트 + 패턴 + CAN SLIM 분석
+  - `POST /api/analysis/analyze`: 펀더멘털 CAN SLIM 분석
+  - `POST /api/screener/scan`: 스크리너 조회(기본은 캐시 우선)
+  - `POST /api/screener/refresh`: 스크리너 캐시 강제 갱신
+  - `GET /api/screener/cache/status`: 캐시 상태 확인
+  - `GET /api/providers/status`: Gemini/OpenAI/Claude 키 상태
+  - `GET /health`: 헬스체크
 
-- Integrated 서비스
-  - `cd backend/services/integrated_investment_service`
-  - `python main.py`
-  - API: `uvicorn server.app:app --reload`
+## Screener 운영 정책
 
-- KIS 진단 서비스
-  - `cd backend/services/kis_trading_diagnostics`
-  - `python main.py`
+- 기본 유니버스: `S&P500 + NASDAQ (all)`
+- 기본 필터: `min_market_cap = 500,000,000 USD`
+- 기본 결과 수: `100`
+- 기본 제공자: `claude`
+- 캐시 정책: 기본 요청은 캐시 우선 반환
+- 갱신 정책: `매주 월요일 오전 9시 (KST)` 스케줄러 갱신
+- 설계 의도: 대유니버스 호출은 저속 배치(phase1/phase2)로 분산해 rate limit 완화
 
-## Run From Root
+주의:
+- Yahoo 소스는 짧은 시간 burst 호출 시 rate limit가 발생할 수 있습니다.
+- 일부 종목의 시총/EPS 성장값이 제한될 수 있으며, 이 경우 UI에서 `데이터 제한`으로 표시됩니다.
 
-- 의존성 설치
-  - `make install-all`
+## Local Run
 
-- API 실행
-  - `make run-integrated-api`  (http://localhost:8000)
-  - `make run-chart-api`       (http://localhost:8001)
+1. 의존성 설치
+- `make install-all`
 
-- 정적 UI 실행
-  - `make serve-integrated-ui` (http://localhost:3000)
-  - `make serve-chart-ui`      (http://localhost:3001)
+2. 통합 API 실행
+- `make run-integrated-api`
+- 기본 주소: `http://localhost:8000`
 
-- CLI 실행
-  - `make run-integrated-cli`
-  - `make run-chart-cli`
-  - `make run-kis-cli`
+3. 통합 UI 실행
+- `make serve-integrated-ui`
+- 기본 주소: `http://localhost:3000`
 
-## Legacy Mapping
+## Cloud Run Deploy
 
-- `hyochang` -> `backend/services/chart_canslim_service`
-- `yanghee` -> `backend/services/integrated_investment_service`
-- `yongaa` -> `backend/services/kis_trading_diagnostics`
+프로젝트 루트에서:
+
+```bash
+export GEMINI_API_KEY=...
+export OPENAI_API_KEY=...      # optional
+export ANTHROPIC_API_KEY=...   # optional
+./scripts/deploy_cloud_run.sh <PROJECT_ID> <REGION>
+```
+
+예시:
+
+```bash
+./scripts/deploy_cloud_run.sh ai-assistant-489106 asia-northeast3
+```
