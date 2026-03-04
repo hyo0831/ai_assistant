@@ -24,7 +24,7 @@ ONEIL_RULE = """
 """.strip()
 
 
-def analyze(stock, info: dict) -> Dict:
+def analyze(stock, info: dict, enable_ai: bool = True) -> Dict:
     """52주 가격 데이터 수집 + AI 촉매 분석"""
     result = {
         'fifty_two_week_high': None,
@@ -57,10 +57,11 @@ def analyze(stock, info: dict) -> Dict:
         if low_52 and current and low_52 > 0:
             result['fifty_two_week_return'] = round(((current - low_52) / low_52) * 100, 1)
 
-        # AI에게 촉매 조사 요청
-        ai_result = _query_ai_for_catalyst(stock.ticker, company_name)
-        if ai_result:
-            result['ai_catalyst'] = ai_result
+        # AI에게 촉매 조사 요청 (스크리너 대량 처리 시 비활성화 가능)
+        if enable_ai:
+            ai_result = _query_ai_for_catalyst(stock.ticker, company_name)
+            if ai_result:
+                result['ai_catalyst'] = ai_result
 
     except Exception as e:
         result['data_note'] = f'Error: {e}'

@@ -1,4 +1,6 @@
 import re
+import os
+import base64
 from google import genai
 from google.genai import types
 from PIL import Image
@@ -6,6 +8,73 @@ import json
 
 from core.config import GEMINI_API_KEY, LANGUAGE
 from core.system_prompt import WILLIAM_ONEIL_ENHANCED_PERSONA
+
+
+def _generate_with_provider(provider: str, prompt: str, image_path: str = None) -> str:
+    provider = (provider or "gemini").lower()
+
+    if provider == "gemini":
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        contents = [prompt]
+        if image_path:
+            contents.append(Image.open(image_path))
+        response = client.models.generate_content(
+            model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA,
+            )
+        )
+        return response.text or ""
+
+    if provider == "openai":
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        user_content = [{"type": "text", "text": prompt}]
+        if image_path:
+            with open(image_path, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            user_content.append(
+                {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}}
+            )
+        response = client.chat.completions.create(
+            model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": WILLIAM_ONEIL_ENHANCED_PERSONA},
+                {"role": "user", "content": user_content},
+            ],
+            temperature=0.2,
+        )
+        return response.choices[0].message.content or ""
+
+    if provider == "claude":
+        from anthropic import Anthropic
+        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        content = [{"type": "text", "text": prompt}]
+        if image_path:
+            with open(image_path, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode()
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": img_b64,
+                    },
+                }
+            )
+        response = client.messages.create(
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            max_tokens=4096,
+            system=WILLIAM_ONEIL_ENHANCED_PERSONA,
+            messages=[{"role": "user", "content": content}],
+        )
+        return "".join(
+            block.text for block in response.content if getattr(block, "type", "") == "text"
+        )
+
+    raise ValueError(f"Unsupported provider: {provider}")
 
 
 def _get_language_instruction() -> str:
@@ -46,7 +115,8 @@ def _remove_emojis(text: str) -> str:
 
 def analyze_chart_with_gemini(image_path: str, ticker: str, df=None,
                                feedback_manager=None,
-                               interval: str = "1wk") -> str:
+                               interval: str = "1wk",
+                               provider: str = "gemini") -> str:
     """
     Gemini를 사용하여 차트 분석
 
@@ -60,10 +130,7 @@ def analyze_chart_with_gemini(image_path: str, ticker: str, df=None,
     Returns:
         AI 분석 결과 텍스트
     """
-    print(f"[*] Analyzing chart with Gemini (William O'Neil persona)...")
-
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    image = Image.open(image_path)
+    print(f"[*] Analyzing chart with {provider.upper()} (William O'Neil persona)...")
 
     data_summary = ""
     if df is not None and not df.empty:
@@ -160,16 +227,10 @@ PART 2: Detailed Analysis
 Be specific, use actual price levels visible on the chart, and give your honest professional opinion.
 """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=[analysis_prompt, image],
-        config=types.GenerateContentConfig(
-            system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA,
-        )
-    )
+    output_text = _generate_with_provider(provider, analysis_prompt, image_path=image_path)
 
     print("[OK] Analysis complete!")
-    return _remove_emojis(response.text)
+    return _remove_emojis(output_text)
 
 
 def parse_pattern_data(analysis_text: str) -> dict:
@@ -202,7 +263,8 @@ def analyze_chart_v2(image_path: str, ticker: str, df,
                      feedback_manager=None,
                      fundamental_result: dict = None,
                      interval: str = "1wk",
-                     history_context: str = "") -> str:
+                     history_context: str = "",
+                     provider: str = "gemini") -> str:
     """
     V2: 코드 기반 패턴 감지 결과 + 펀더멘털 분석을 AI에게 전달하여 해석
 
@@ -219,10 +281,7 @@ def analyze_chart_v2(image_path: str, ticker: str, df,
     Returns:
         AI 분석 결과 텍스트
     """
-    print(f"[*] V2: Analyzing with code-detected patterns + AI interpretation...")
-
-    client = genai.Client(api_key=GEMINI_API_KEY)
-    image = Image.open(image_path)
+    print(f"[*] V2: Analyzing with {provider.upper()} + code-detected patterns...")
 
     data_summary = ""
     if df is not None and not df.empty:
@@ -325,13 +384,7 @@ Be specific with price levels and percentages. Give your honest professional opi
 Integrate BOTH technical chart analysis and ALL CAN SLIM fundamental factors in your final verdict.
 """
 
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=[analysis_prompt, image],
-        config=types.GenerateContentConfig(
-            system_instruction=WILLIAM_ONEIL_ENHANCED_PERSONA,
-        )
-    )
+    output_text = _generate_with_provider(provider, analysis_prompt, image_path=image_path)
 
     print("[OK] V2 Analysis complete!")
-    return _remove_emojis(response.text)
+    return _remove_emojis(output_text)

@@ -70,8 +70,8 @@ def run_analysis(ticker: str) -> Dict:
         ('N', '신촉매', lambda: n_new_catalyst.analyze(stock, info)),
         ('S', '수급', lambda: s_supply_demand.analyze(stock, info)),
         ('L', '리더/래거드 + RS Rating', lambda: l_leader_laggard.analyze(stock, info, ticker)),
-        ('I', '기관 보유', lambda: i_institutional.analyze(stock, info, ticker)),
-        ('M', '시장 방향', lambda: m_market_direction.analyze(ticker)),
+        ('I', '기관 보유', lambda: i_institutional.analyze(stock, info)),
+        ('M', '시장 방향', lambda: m_market_direction.analyze()),
     ]
 
     for factor_key, factor_name, analyze_fn in factors:

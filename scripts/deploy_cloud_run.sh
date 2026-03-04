@@ -31,12 +31,29 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregi
 
 echo "[3/4] Deploy Cloud Run service: $SERVICE_NAME"
 cd "$SRC_DIR"
+ENV_VARS=("GEMINI_API_KEY=$GEMINI_API_KEY")
+if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+  ENV_VARS+=("OPENAI_API_KEY=$OPENAI_API_KEY")
+fi
+if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+  ENV_VARS+=("ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
+fi
+if [[ -n "${GEMINI_MODEL:-}" ]]; then
+  ENV_VARS+=("GEMINI_MODEL=$GEMINI_MODEL")
+fi
+if [[ -n "${OPENAI_MODEL:-}" ]]; then
+  ENV_VARS+=("OPENAI_MODEL=$OPENAI_MODEL")
+fi
+if [[ -n "${ANTHROPIC_MODEL:-}" ]]; then
+  ENV_VARS+=("ANTHROPIC_MODEL=$ANTHROPIC_MODEL")
+fi
+
 gcloud run deploy "$SERVICE_NAME" \
   --source . \
   --region "$REGION" \
   --platform managed \
   --allow-unauthenticated \
-  --set-env-vars GEMINI_API_KEY="$GEMINI_API_KEY"
+  --update-env-vars "$(IFS=,; echo "${ENV_VARS[*]}")"
 
 echo "[4/4] Done"
 gcloud run services describe "$SERVICE_NAME" \
