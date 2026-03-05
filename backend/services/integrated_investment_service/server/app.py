@@ -26,6 +26,16 @@ from typing import Optional
 from dotenv import load_dotenv
 import threading
 import json as json_mod
+from server.screener.models import ScreenerRequest, ScreenerRefreshRequest
+from server.screener.routes import create_screener_router
+from server.screener.service import ScreenerService
+from server.screener.compute import compute_screener as screener_compute
+from server.screener.store import (
+    ScreenerCacheStore,
+    load_json_file as screener_load_json_file,
+    save_json_file as screener_save_json_file,
+)
+from server.screener import data_sources as screener_data_sources
 
 # 프로젝트 루트 = backend/services/integrated_investment_service/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -163,26 +173,10 @@ class HealthResponse(BaseModel):
     modes: list[str]
 
 
-class ScreenerRequest(BaseModel):
-    market: str = Field(default="US", description="현재 US만 지원")
-    min_market_cap: float = Field(default=500_000_000, description="최소 시가총액(USD)")
-    sort_by: str = Field(default="score", description="정렬: score/rs/eps_growth/revenue_growth/from_high")
-    max_results: int = Field(default=100, description="반환 결과 수")
-    provider: str = Field(default="claude", description="AI 제공자: gemini/openai/claude")
-    prefilter_count: int = Field(default=160, description="1차 후보 선별 수")
-    ai_rerank_count: int = Field(default=100, description="AI 0~99 점수 재평가할 종목 수")
-    use_cache: bool = Field(default=True, description="캐시 사용 여부")
-    force_refresh: bool = Field(default=False, description="캐시 무시 후 재계산")
-
-
-class ScreenerRefreshRequest(BaseModel):
-    secret: Optional[str] = Field(default=None, description="갱신 보호 토큰")
-    provider: str = Field(default="claude", description="AI 제공자")
-    min_market_cap: float = Field(default=500_000_000, description="최소 시가총액(USD)")
-    max_results: int = Field(default=100, description="반환 결과 수")
-
-
 SCREENER_CACHE_FILE = PROJECT_ROOT / "screener_cache.json"
+SCREENER_UNIVERSE_FILE = PROJECT_ROOT / "screener_universe_cache.json"
+SCREENER_SNAPSHOT_FILE = PROJECT_ROOT / "screener_snapshot_store.json"
+SCREENER_DATASET_FILE = PROJECT_ROOT / "screener_precomputed_dataset.json"
 SCREENER_CACHE_LOCK = threading.Lock()
 SCREENER_DEFAULT_MARKET = "US"
 SCREENER_DEFAULT_MIN_MARKET_CAP = 500_000_000.0
@@ -192,23 +186,449 @@ SCREENER_PHASE1_WORKERS = int(os.environ.get("SCREENER_PHASE1_WORKERS", "4"))
 SCREENER_PHASE2_WORKERS = int(os.environ.get("SCREENER_PHASE2_WORKERS", "1"))
 SCREENER_BATCH_SIZE = int(os.environ.get("SCREENER_BATCH_SIZE", "80"))
 SCREENER_BATCH_PAUSE_SEC = float(os.environ.get("SCREENER_BATCH_PAUSE_SEC", "0.5"))
+SCREENER_SUMMARY_WORKERS = int(os.environ.get("SCREENER_SUMMARY_WORKERS", "4"))
+SCREENER_SUMMARY_MAX_CHARS = int(os.environ.get("SCREENER_SUMMARY_MAX_CHARS", "80"))
+SCREENER_SUMMARY_SYNC_FILL = int(os.environ.get("SCREENER_SUMMARY_SYNC_FILL", "3"))
+SCREENER_METRICS_REFRESH_BATCH = int(os.environ.get("SCREENER_METRICS_REFRESH_BATCH", "20"))
+SCREENER_UNIVERSE_TTL_DAYS = int(os.environ.get("SCREENER_UNIVERSE_TTL_DAYS", "90"))
+SCREENER_REFRESH_STATE_LOCK = threading.Lock()
+SCREENER_REFRESH_STATE = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "status": "idle",  # idle|running|success|error
+    "error": "",
+    "result_count": 0,
+    "provider": SCREENER_DEFAULT_PROVIDER,
+}
+SCREENER_SUMMARY_BACKFILL_LOCK = threading.Lock()
+SCREENER_SUMMARY_BACKFILL_RUNNING = False
+_SCREENER_CACHE_STORE = ScreenerCacheStore(SCREENER_CACHE_FILE)
 
 
 def _load_screener_cache() -> Optional[dict]:
-    with SCREENER_CACHE_LOCK:
-        if not SCREENER_CACHE_FILE.exists():
-            return None
-        try:
-            with open(SCREENER_CACHE_FILE, "r") as f:
-                return json_mod.load(f)
-        except Exception:
-            return None
+    return _SCREENER_CACHE_STORE.load()
 
 
 def _save_screener_cache(payload: dict):
-    with SCREENER_CACHE_LOCK:
-        with open(SCREENER_CACHE_FILE, "w") as f:
-            json_mod.dump(payload, f, ensure_ascii=False)
+    _SCREENER_CACHE_STORE.save(payload)
+
+
+def _load_json_file(path: Path) -> Optional[dict]:
+    return screener_load_json_file(path)
+
+
+def _save_json_file(path: Path, payload: dict):
+    screener_save_json_file(path, payload)
+
+
+def _get_cached_universe_symbols() -> list[str]:
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    cache = _load_json_file(SCREENER_UNIVERSE_FILE) or {}
+    symbols = list(cache.get("symbols", []) or [])
+    fetched_at_raw = cache.get("fetched_at")
+    if symbols and fetched_at_raw:
+        try:
+            fetched_at = datetime.fromisoformat(str(fetched_at_raw).replace("Z", "+00:00"))
+            age_days = (now - fetched_at).total_seconds() / 86400.0
+            if age_days <= max(1, SCREENER_UNIVERSE_TTL_DAYS):
+                return sorted({str(s).upper() for s in symbols if s})
+        except Exception:
+            pass
+
+    symbols = sorted(_get_us_index_universe())
+    payload = {
+        "fetched_at": now.isoformat(),
+        "ttl_days": SCREENER_UNIVERSE_TTL_DAYS,
+        "symbols": symbols,
+    }
+    _save_json_file(SCREENER_UNIVERSE_FILE, payload)
+    return symbols
+
+
+def _load_snapshot_store() -> dict:
+    data = _load_json_file(SCREENER_SNAPSHOT_FILE) or {}
+    return {
+        "updated_at": data.get("updated_at"),
+        "cursor": int(_safe_float(data.get("cursor"), 0)),
+        "items": data.get("items", {}) if isinstance(data.get("items"), dict) else {},
+    }
+
+
+def _save_snapshot_store(store: dict):
+    payload = {
+        "updated_at": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+        "cursor": int(_safe_float(store.get("cursor"), 0)),
+        "items": store.get("items", {}),
+    }
+    _save_json_file(SCREENER_SNAPSHOT_FILE, payload)
+
+
+def _build_precomputed_dataset_from_snapshot(provider: str) -> dict:
+    store = _load_snapshot_store()
+    items = store.get("items", {}) or {}
+    rows = []
+    for symbol, row in items.items():
+        r = dict(row or {})
+        r["symbol"] = str(symbol).upper()
+        r["name"] = r.get("name") or r["symbol"]
+        r["sector"] = r.get("sector") or "N/A"
+        r["industry"] = r.get("industry") or "N/A"
+        r["price"] = round(_safe_float(r.get("price"), 0.0), 2)
+        r["from_high_pct"] = round(_safe_float(r.get("from_high_pct"), 0.0), 1)
+        r["eps_growth"] = round(_safe_float(r.get("eps_growth"), 0.0), 1)
+        r["revenue_growth"] = round(_safe_float(r.get("revenue_growth"), 0.0), 1)
+        r["vol_ratio"] = round(_safe_float(r.get("vol_ratio"), 1.0), 2)
+        r["market_cap"] = int(_safe_float(r.get("market_cap"), 0.0))
+        r["rs_raw"] = round(_safe_float(r.get("rs_raw"), 0.0), 4)
+        r["summary"] = str(r.get("summary", "") or "")
+        rows.append(r)
+
+    if not rows:
+        payload = {
+            "provider": provider,
+            "analyzed_at": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+            "results": [],
+            "dataset_size": 0,
+            "refresh_policy": SCREENER_REFRESH_POLICY,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+        _save_json_file(SCREENER_DATASET_FILE, payload)
+        return payload
+
+    rs_values = [_safe_float(r.get("rs_raw"), 0.0) for r in rows]
+    for r in rows:
+        rs_score = _percentile_rank(rs_values, _safe_float(r.get("rs_raw"), 0.0))
+        r["rs_score"] = round(rs_score, 1)
+        fh = max(0.0, min(100.0, _safe_float(r.get("from_high_pct"), 0.0)))
+        eps_n = max(0.0, min(100.0, 50.0 + _safe_float(r.get("eps_growth"), 0.0) * 1.2))
+        rev_n = max(0.0, min(100.0, 50.0 + _safe_float(r.get("revenue_growth"), 0.0) * 1.0))
+        vol_n = max(0.0, min(100.0, _safe_float(r.get("vol_ratio"), 1.0) * 40.0))
+        score = fh * 0.35 + rs_score * 0.35 + eps_n * 0.20 + rev_n * 0.05 + vol_n * 0.05
+        r["score"] = round(score, 1)
+        r["ai_score"] = int(round(score))
+        r["ai_reason"] = r.get("ai_reason") or "정량 점수 기반"
+
+    rows = _sort_screener_rows(rows, "score")
+    top_for_summary = rows[:120]
+    missing = [r for r in top_for_summary if not str(r.get("summary", "")).strip()]
+    if missing:
+        _attach_investor_summaries(missing, provider=provider)
+
+    payload = {
+        "provider": provider,
+        "analyzed_at": datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+        "dataset_size": len(rows),
+        "results": rows,
+        "refresh_policy": SCREENER_REFRESH_POLICY,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    _save_json_file(SCREENER_DATASET_FILE, payload)
+    return payload
+
+
+def _refresh_snapshot_batch(provider: str, batch_size: int = 20) -> tuple[int, int]:
+    provider = (provider or SCREENER_DEFAULT_PROVIDER).lower().strip()
+    symbols = _get_cached_universe_symbols()
+    if not symbols:
+        return 0, 0
+    store = _load_snapshot_store()
+    items = store.get("items", {}) or {}
+    total = len(symbols)
+    batch_size = max(1, min(int(batch_size), total))
+    cursor = max(0, min(int(_safe_float(store.get("cursor"), 0)), max(0, total - 1)))
+    selected = [symbols[(cursor + i) % total] for i in range(batch_size)]
+
+    try:
+        import yfinance as yf
+        bench_hist = yf.Ticker("^GSPC").history(period="1y", interval="1d", auto_adjust=False)
+        bclose = bench_hist["Close"].dropna()
+        b_now = _safe_float(bclose.iloc[-1], 0.0) if len(bclose) else 0.0
+        b_6m = _safe_float(bclose.iloc[max(0, len(bclose) - 126)], 0.0) if len(bclose) else 0.0
+        b_12m = _safe_float(bclose.iloc[0], 0.0) if len(bclose) else 0.0
+        bench_6m = ((b_now / b_6m) - 1.0) if b_6m > 0 else 0.0
+        bench_12m = ((b_now / b_12m) - 1.0) if b_12m > 0 else 0.0
+    except Exception:
+        bench_6m = 0.0
+        bench_12m = 0.0
+
+    fetched = _collect_snapshots_throttled(
+        symbols=selected,
+        bench_6m=bench_6m,
+        bench_12m=bench_12m,
+        include_info=True,
+        workers=max(1, min(SCREENER_PHASE2_WORKERS, 2)),
+        batch_size=max(10, min(batch_size, 30)),
+        pause_sec=max(0.4, SCREENER_BATCH_PAUSE_SEC),
+    )
+    refreshed_rows = list(fetched.values())
+    refreshed_rows = _enrich_result_metrics(refreshed_rows)
+    refreshed_rows = _attach_investor_summaries(refreshed_rows, provider=provider)
+
+    updated = 0
+    for row in refreshed_rows:
+        sym = str(row.get("symbol", "")).upper()
+        if not sym:
+            continue
+        before = items.get(sym, {})
+        b_sig = (
+            _safe_float(before.get("market_cap"), 0.0),
+            _safe_float(before.get("eps_growth"), 0.0),
+            _safe_float(before.get("revenue_growth"), 0.0),
+            str(before.get("summary", "") or ""),
+        )
+        merged = dict(before)
+        for k, v in row.items():
+            if k in ("market_cap", "eps_growth", "revenue_growth", "price", "from_high_pct", "vol_ratio", "rs_raw"):
+                vv = _safe_float(v, 0.0)
+                if vv != 0.0 or k in ("price", "from_high_pct", "vol_ratio", "rs_raw"):
+                    merged[k] = int(vv) if k == "market_cap" else round(vv, 4)
+            elif k in ("name", "sector", "industry", "summary"):
+                if str(v or "").strip():
+                    merged[k] = v
+            else:
+                merged[k] = v
+        items[sym] = merged
+        a_sig = (
+            _safe_float(merged.get("market_cap"), 0.0),
+            _safe_float(merged.get("eps_growth"), 0.0),
+            _safe_float(merged.get("revenue_growth"), 0.0),
+            str(merged.get("summary", "") or ""),
+        )
+        if a_sig != b_sig:
+            updated += 1
+
+    store["items"] = items
+    store["cursor"] = (cursor + batch_size) % total
+    _save_snapshot_store(store)
+    _build_precomputed_dataset_from_snapshot(provider=provider)
+    return len(refreshed_rows), updated
+
+
+def _refresh_state_snapshot() -> dict:
+    with SCREENER_REFRESH_STATE_LOCK:
+        return dict(SCREENER_REFRESH_STATE)
+
+
+def _set_refresh_state(**kwargs):
+    with SCREENER_REFRESH_STATE_LOCK:
+        for k, v in kwargs.items():
+            if k in SCREENER_REFRESH_STATE:
+                SCREENER_REFRESH_STATE[k] = v
+
+
+def _build_refresh_scan_request(provider: str, min_market_cap: float, max_results: int) -> ScreenerRequest:
+    return ScreenerRequest(
+        market="US",
+        min_market_cap=min_market_cap,
+        sort_by="score",
+        max_results=max_results,
+        provider=provider,
+        prefilter_count=max(160, max_results + 60),
+        ai_rerank_count=0,
+        use_cache=False,
+        force_refresh=True,
+    )
+
+
+def _bootstrap_screener_cache_fast(scan_req: ScreenerRequest) -> dict:
+    seed = [
+        "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "COST", "NFLX",
+        "AMD", "ADBE", "CSCO", "PEP", "QCOM", "AMGN", "INTU", "AMAT", "BKNG", "ISRG",
+        "JPM", "V", "MA", "UNH", "XOM", "LLY", "WMT", "JNJ", "PG", "CAT",
+    ]
+    max_results = max(1, min(int(scan_req.max_results), len(seed)))
+    rows = []
+    for i, sym in enumerate(seed[:max_results]):
+        rows.append({
+            "symbol": sym,
+            "name": sym,
+            "sector": "N/A",
+            "industry": "N/A",
+            "price": 0.0,
+            "from_high_pct": 0.0,
+            "eps_growth": 0.0,
+            "revenue_growth": 0.0,
+            "vol_ratio": 1.0,
+            "market_cap": 0,
+            "rs_score": 50.0,
+            "score": max(40, 80 - i),
+            "ai_score": max(40, 80 - i),
+            "ai_reason": "초기 캐시 부트스트랩",
+            "summary": "",
+        })
+
+    rows = _enrich_result_metrics(rows)
+    rows = _attach_investor_summaries(rows, provider=scan_req.provider)
+    analyzed_at = datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+    return {
+        "market": "US",
+        "universe": "bootstrap_seed",
+        "universe_size": len(seed),
+        "scanned": len(rows),
+        "matched": len(rows),
+        "filter_basis": "bootstrap",
+        "provider": scan_req.provider,
+        "prefilter_count": len(rows),
+        "ai_rerank_count": 0,
+        "ai_scored_count": 0,
+        "duplicates_removed": 0,
+        "analyzed_at": analyzed_at,
+        "results": rows,
+        "metrics_refresh_batch": min(SCREENER_METRICS_REFRESH_BATCH, len(rows)),
+        "metrics_refresh_cursor": 0,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+
+def _refresh_cached_metrics_incremental(scan_req: ScreenerRequest) -> tuple[bool, int]:
+    cache = _load_screener_cache() or {}
+    rows = list(cache.get("results", []))
+    if not rows:
+        return False, 0
+
+    total = len(rows)
+    batch = max(1, min(SCREENER_METRICS_REFRESH_BATCH, total))
+    cursor = int(_safe_float(cache.get("metrics_refresh_cursor", 0), 0))
+    cursor = max(0, min(cursor, total - 1))
+
+    selected = []
+    indexes = []
+    for i in range(batch):
+        idx = (cursor + i) % total
+        indexes.append(idx)
+        selected.append(dict(rows[idx]))
+
+    refreshed = _enrich_result_metrics(selected)
+    refreshed = _attach_investor_summaries(refreshed, provider=scan_req.provider)
+
+    updated = 0
+    for idx, new_row in zip(indexes, refreshed):
+        base = rows[idx]
+        before = (
+            _safe_float(base.get("market_cap"), 0.0),
+            _safe_float(base.get("eps_growth"), 0.0),
+            _safe_float(base.get("revenue_growth"), 0.0),
+            str(base.get("summary", "") or ""),
+        )
+        for k in ("name", "sector", "industry", "summary"):
+            if k in new_row and str(new_row.get(k, "")).strip():
+                base[k] = new_row[k]
+        for k in ("market_cap", "eps_growth", "revenue_growth"):
+            nv = _safe_float(new_row.get(k), 0.0)
+            if nv != 0.0:
+                base[k] = int(nv) if k == "market_cap" else round(nv, 1)
+        after = (
+            _safe_float(base.get("market_cap"), 0.0),
+            _safe_float(base.get("eps_growth"), 0.0),
+            _safe_float(base.get("revenue_growth"), 0.0),
+            str(base.get("summary", "") or ""),
+        )
+        if before != after:
+            updated += 1
+
+    cache["results"] = rows
+    cache["analyzed_at"] = datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+    cache["timestamp"] = datetime.utcnow().isoformat()
+    cache["metrics_refresh_batch"] = batch
+    cache["metrics_refresh_cursor"] = (cursor + batch) % total
+    _save_screener_cache(cache)
+    return True, updated
+
+
+def _run_screener_refresh_job(scan_req: ScreenerRequest):
+    started_at = datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+    _set_refresh_state(
+        running=True,
+        started_at=started_at,
+        finished_at=None,
+        status="running",
+        error="",
+        result_count=0,
+        provider=scan_req.provider,
+    )
+    try:
+        cache = _load_screener_cache()
+        used_incremental, updated_count = _refresh_cached_metrics_incremental(scan_req)
+        if used_incremental:
+            data = _load_screener_cache() or {}
+        elif not cache:
+            data = _bootstrap_screener_cache_fast(scan_req)
+            _save_screener_cache(data)
+        else:
+            data = _compute_screener(scan_req)
+            _save_screener_cache(data)
+        _set_refresh_state(
+            running=False,
+            finished_at=datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+            status="success",
+            error="",
+            result_count=len(data.get("results", [])),
+        )
+        if used_incremental:
+            print(f"[OK] incremental metrics refresh done: updated={updated_count}, total={len(data.get('results', []))}")
+    except Exception as exc:
+        _set_refresh_state(
+            running=False,
+            finished_at=datetime.utcnow().replace(tzinfo=timezone.utc).isoformat(),
+            status="error",
+            error=str(exc),
+        )
+        print(f"[WARN] screener refresh job failed: {exc}")
+
+
+def _start_screener_refresh(scan_req: ScreenerRequest) -> bool:
+    with SCREENER_REFRESH_STATE_LOCK:
+        if SCREENER_REFRESH_STATE.get("running"):
+            return False
+        SCREENER_REFRESH_STATE["running"] = True
+        SCREENER_REFRESH_STATE["status"] = "running"
+        SCREENER_REFRESH_STATE["started_at"] = datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
+        SCREENER_REFRESH_STATE["finished_at"] = None
+        SCREENER_REFRESH_STATE["error"] = ""
+        SCREENER_REFRESH_STATE["result_count"] = 0
+        SCREENER_REFRESH_STATE["provider"] = scan_req.provider
+
+    t = threading.Thread(target=_run_screener_refresh_job, args=(scan_req,), daemon=True)
+    t.start()
+    return True
+
+
+def _run_cache_summary_backfill(provider: str, max_rows: int):
+    global SCREENER_SUMMARY_BACKFILL_RUNNING
+    try:
+        cache = _load_screener_cache() or {}
+        rows = list(cache.get("results", []))
+        if not rows:
+            return
+        max_rows = max(1, min(int(max_rows), len(rows)))
+        targets = rows[:max_rows]
+        missing = [r for r in targets if not str(r.get("summary", "")).strip()]
+        if not missing:
+            return
+        _attach_investor_summaries(missing, provider=provider)
+        cache["results"] = rows
+        _save_screener_cache(cache)
+    except Exception as exc:
+        print(f"[WARN] cache summary backfill failed: {exc}")
+    finally:
+        with SCREENER_SUMMARY_BACKFILL_LOCK:
+            SCREENER_SUMMARY_BACKFILL_RUNNING = False
+
+
+def _start_cache_summary_backfill(provider: str, max_rows: int) -> bool:
+    global SCREENER_SUMMARY_BACKFILL_RUNNING
+    with SCREENER_SUMMARY_BACKFILL_LOCK:
+        if SCREENER_SUMMARY_BACKFILL_RUNNING:
+            return False
+        SCREENER_SUMMARY_BACKFILL_RUNNING = True
+    t = threading.Thread(
+        target=_run_cache_summary_backfill,
+        args=(provider, max_rows),
+        daemon=True,
+    )
+    t.start()
+    return True
 
 
 def _is_default_cache_request(req: ScreenerRequest) -> bool:
@@ -418,6 +838,7 @@ def _fetch_symbol_snapshot(symbol: str, bench_6m: float, bench_12m: float, inclu
         "symbol": symbol,
         "name": info.get("shortName") or info.get("longName") or symbol,
         "sector": info.get("sector") or "N/A",
+        "industry": info.get("industry") or "N/A",
         "price": round(price, 2),
         "from_high_pct": round(from_high_pct, 1),
         "eps_growth": round(eps_growth, 1),
@@ -461,101 +882,19 @@ def _collect_snapshots_throttled(
 
 
 def _fetch_yahoo_growth_snapshot(symbol: str) -> dict:
-    import urllib.request
-    import urllib.parse
+    return screener_data_sources.fetch_yahoo_growth_snapshot(symbol)
 
-    try:
-        sym = urllib.parse.quote(symbol)
-        url = (
-            f"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{sym}"
-            "?modules=financialData,price"
-        )
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=6) as resp:
-            data = json_mod.loads(resp.read().decode())
-        result = (((data or {}).get("quoteSummary") or {}).get("result") or [{}])[0]
-        fin = result.get("financialData") or {}
-        price = result.get("price") or {}
 
-        def _raw(v):
-            if isinstance(v, dict):
-                return v.get("raw")
-            return v
+def _fetch_yahoo_asset_profile(symbol: str) -> dict:
+    return screener_data_sources.fetch_yahoo_asset_profile(symbol)
 
-        return {
-            "eps_growth": _safe_float(_raw(fin.get("earningsGrowth")), 0.0) * 100.0,
-            "revenue_growth": _safe_float(_raw(fin.get("revenueGrowth")), 0.0) * 100.0,
-            "market_cap": int(_safe_float(_raw(price.get("marketCap")), 0.0)),
-        }
-    except Exception:
-        return {}
+
+def _enrich_profile_for_summaries(rows: list[dict]) -> list[dict]:
+    return screener_data_sources.enrich_profile_for_summaries(rows)
 
 
 def _enrich_result_metrics(rows: list[dict]) -> list[dict]:
-    import urllib.request
-    import urllib.parse
-
-    rows = list(rows or [])
-    if not rows:
-        return rows
-
-    symbols = [str(r.get("symbol", "")).strip().upper() for r in rows if r.get("symbol")]
-    symbols = [s for s in symbols if s]
-    if not symbols:
-        return rows
-
-    # 1) 시총/이름 배치 조회
-    for i in range(0, len(symbols), 150):
-        chunk = symbols[i:i + 150]
-        try:
-            joined = urllib.parse.quote(",".join(chunk))
-            url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={joined}"
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                data = json_mod.loads(resp.read().decode())
-            by_symbol = {
-                str(q.get("symbol", "")).upper(): q
-                for q in (((data or {}).get("quoteResponse") or {}).get("result") or [])
-            }
-            for r in rows:
-                s = str(r.get("symbol", "")).upper()
-                q = by_symbol.get(s)
-                if not q:
-                    continue
-                mcap = int(_safe_float(q.get("marketCap"), 0.0))
-                if _safe_float(r.get("market_cap"), 0.0) <= 0 and mcap > 0:
-                    r["market_cap"] = mcap
-                if (not r.get("name")) or r.get("name") == s:
-                    r["name"] = q.get("shortName") or q.get("longName") or r.get("name", s)
-        except Exception:
-            continue
-
-    # 2) EPS/매출 성장 보강 (값이 비어있는 종목만)
-    targets = [
-        r for r in rows
-        if _safe_float(r.get("eps_growth"), 0.0) == 0.0
-        and _safe_float(r.get("revenue_growth"), 0.0) == 0.0
-    ]
-    if targets:
-        with ThreadPoolExecutor(max_workers=6) as ex:
-            futures = {
-                ex.submit(_fetch_yahoo_growth_snapshot, str(r.get("symbol", "")).upper()): r
-                for r in targets
-            }
-            for f in as_completed(futures):
-                row = futures[f]
-                try:
-                    g = f.result() or {}
-                    if _safe_float(row.get("eps_growth"), 0.0) == 0.0 and "eps_growth" in g:
-                        row["eps_growth"] = round(_safe_float(g.get("eps_growth"), 0.0), 1)
-                    if _safe_float(row.get("revenue_growth"), 0.0) == 0.0 and "revenue_growth" in g:
-                        row["revenue_growth"] = round(_safe_float(g.get("revenue_growth"), 0.0), 1)
-                    if _safe_float(row.get("market_cap"), 0.0) <= 0 and _safe_float(g.get("market_cap"), 0.0) > 0:
-                        row["market_cap"] = int(_safe_float(g.get("market_cap"), 0.0))
-                except Exception:
-                    continue
-
-    return rows
+    return screener_data_sources.enrich_result_metrics(rows)
 
 
 def _heuristic_canslim_score(detail: dict) -> int:
@@ -663,6 +1002,227 @@ def _ai_score_candidate(detail: dict, provider: str) -> tuple[int, str]:
         return fallback, f"AI 점수 실패로 휴리스틱 사용: {exc}"
 
 
+def _clean_summary_text(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return ""
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+    text = re.sub(r"\s+", " ", text).strip().strip('"').strip("'")
+    max_chars = max(30, SCREENER_SUMMARY_MAX_CHARS)
+    if len(text) > max_chars:
+        text = text[:max_chars].rstrip(" ,.;:") + "..."
+    return text
+
+
+def _parse_summary_response_text(text: str) -> str:
+    text = (text or "").strip()
+    if not text:
+        return ""
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+
+    try:
+        parsed = json_mod.loads(text)
+        return _clean_summary_text(str(parsed.get("summary", "")))
+    except Exception:
+        pass
+
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if m:
+        try:
+            parsed = json_mod.loads(m.group(0))
+            return _clean_summary_text(str(parsed.get("summary", "")))
+        except Exception:
+            pass
+
+    # JSON 파싱 실패 시 텍스트 자체를 한 줄 요약으로 사용
+    first_line = text.splitlines()[0] if text else ""
+    return _clean_summary_text(first_line)
+
+
+def _is_generic_summary(text: str) -> bool:
+    t = (text or "").strip()
+    if not t:
+        return True
+    blocked_patterns = [
+        "정보가 제공되지",
+        "파악하기 어렵",
+        "추가 정보",
+        "구체적인 사업 내용을",
+        "입력된 정보",
+        "확인할 수 없",
+        "명시되어 있지",
+        "알기 어렵",
+        "알 수 없",
+    ]
+    if any(p in t for p in blocked_patterns):
+        return True
+    generic_tokens = [
+        "투자자",
+        "관심",
+        "검토",
+        "평가",
+        "가치",
+        "분석",
+        "추가 정보",
+        "상장된 기업",
+        "시장 동향",
+    ]
+    hit = sum(1 for tok in generic_tokens if tok in t)
+    has_business_verb = any(v in t for v in ["제공", "개발", "제조", "운영", "판매", "공급"])
+    return hit >= 2 and not has_business_verb
+
+
+def _template_business_summary(row: dict) -> str:
+    company_name = str(row.get("name", "")).strip()
+    sector = str(row.get("sector", "N/A")).strip() or "N/A"
+    industry = str(row.get("industry", "N/A")).strip() or "N/A"
+    label = company_name or str(row.get("symbol", "")).upper().strip() or "해당 기업"
+
+    if industry != "N/A":
+        return _clean_summary_text(f"{label}는 {industry} 분야에서 사업을 운영하는 기업입니다.")
+    if sector != "N/A":
+        return _clean_summary_text(f"{label}는 {sector} 섹터에서 사업을 운영하는 기업입니다.")
+    return _clean_summary_text(f"{label}는 특정 산업에서 제품과 서비스를 제공하는 상장 기업입니다.")
+
+
+def _generate_investor_summary(row: dict, provider: str) -> str:
+    provider = (provider or "claude").lower().strip()
+    if provider not in ("gemini", "openai", "claude"):
+        provider = SCREENER_DEFAULT_PROVIDER
+
+    symbol = str(row.get("symbol", "")).upper().strip()
+    company_name = str(row.get("name", "")).strip()
+    sector = str(row.get("sector", "N/A")).strip() or "N/A"
+    industry = str(row.get("industry", "N/A")).strip() or "N/A"
+    if not symbol:
+        return ""
+
+    prompt = (
+        "다음 입력값을 사용해 해당 회사가 하는 사업을 한국어 한 줄로 설명하세요.\n"
+        "공개적으로 알려진 기업 정보를 바탕으로 작성하고, 투자 의견은 쓰지 마세요.\n"
+        "입력값:\n"
+        f"- symbol: {symbol}\n"
+        f"- company_name: {company_name or symbol}\n"
+        f"- sector: {sector}\n"
+        f"- industry: {industry}\n\n"
+        "규칙:\n"
+        "1) 한 문장만 작성\n"
+        "2) 반드시 '무엇을 제공/개발/제조/운영하는 회사인지'를 포함\n"
+        "3) 45~90자 내외\n"
+        "4) 다음 표현 금지: 알 수 없음, 확인 불가, 정보 부족, 추가 확인 필요\n"
+        "5) 매수/매도/수익 보장/확정적 표현 금지\n"
+        "출력은 반드시 JSON만 반환\n"
+        "형식: {\"summary\":\"...\"}"
+    )
+    knowledge_prompt = (
+        "티커와 회사명을 바탕으로 해당 기업의 핵심 사업을 한국어 한 문장으로 설명하세요.\n"
+        "모르겠다는 표현/불확실 표현(예: 확인 불가, 알 수 없음) 금지.\n"
+        "가능한 범위에서 가장 대표적인 사업 영역을 구체적으로 기술하세요.\n"
+        "매수/매도 권유 금지.\n"
+        "출력은 JSON만 반환.\n"
+        f"입력: symbol={symbol}, company_name={company_name or symbol}\n"
+        "형식: {\"summary\":\"...\"}"
+    )
+    tried = set()
+    provider_chain = [provider, "gemini", "openai", "claude"]
+    def _ask_provider(p: str, user_prompt: str) -> str:
+        if p == "gemini":
+            if not os.environ.get("GEMINI_API_KEY"):
+                return ""
+            from google import genai
+
+            client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+            resp = client.models.generate_content(
+                model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+                contents=user_prompt,
+            )
+            return (resp.text or "").strip()
+        if p == "openai":
+            if not os.environ.get("OPENAI_API_KEY"):
+                return ""
+            from openai import OpenAI
+
+            client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            resp = client.chat.completions.create(
+                model=os.environ.get("OPENAI_MODEL", "gpt-4o-mini"),
+                messages=[
+                    {"role": "system", "content": "Return only strict JSON."},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.2,
+            )
+            return (resp.choices[0].message.content or "").strip()
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            return ""
+        from anthropic import Anthropic
+
+        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        resp = client.messages.create(
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            max_tokens=140,
+            system="Return only strict JSON.",
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        return "".join(
+            block.text for block in resp.content if getattr(block, "type", "") == "text"
+        ).strip()
+
+    for p in provider_chain:
+        if p in tried:
+            continue
+        tried.add(p)
+        try:
+            text = _ask_provider(p, prompt)
+
+            summary = _parse_summary_response_text(text)
+            if summary and not _is_generic_summary(summary):
+                return summary
+        except Exception:
+            continue
+
+    # 정보 누락 시 티커/회사명 기반 2차 생성 시도
+    for p in provider_chain:
+        try:
+            text = _ask_provider(p, knowledge_prompt)
+            summary = _parse_summary_response_text(text)
+            if summary and not _is_generic_summary(summary):
+                return summary
+        except Exception:
+            continue
+
+    return _template_business_summary(row)
+
+
+def _attach_investor_summaries(rows: list[dict], provider: str) -> list[dict]:
+    rows = list(rows or [])
+    if not rows:
+        return rows
+
+    rows = _enrich_profile_for_summaries(rows)
+    workers = max(1, min(SCREENER_SUMMARY_WORKERS, len(rows)))
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        futures = {ex.submit(_generate_investor_summary, row, provider): row for row in rows}
+        for f in as_completed(futures):
+            row = futures[f]
+            try:
+                row["summary"] = f.result() or ""
+            except Exception:
+                row["summary"] = ""
+    return rows
+
+
 def _deep_canslim_snapshot(symbol: str, provider: str) -> dict | None:
     try:
         import yfinance as yf
@@ -690,6 +1250,7 @@ def _deep_canslim_snapshot(symbol: str, provider: str) -> dict | None:
             "symbol": symbol,
             "name": info.get("shortName") or info.get("longName") or symbol,
             "sector": info.get("sector") or "N/A",
+            "industry": info.get("industry") or "N/A",
             "chart": {
                 "best_pattern": (chart.get("best_pattern") or {}).get("type"),
                 "pattern_quality": _safe_float((chart.get("best_pattern") or {}).get("quality_score"), 0.0),
@@ -761,235 +1322,47 @@ async def providers_status():
 
 
 def _compute_screener(req: ScreenerRequest) -> dict:
-    if req.market.upper() != "US":
-        raise HTTPException(status_code=400, detail="현재는 US 시장만 지원합니다.")
+    class _Deps:
+        safe_float = staticmethod(_safe_float)
+        get_us_index_universe = staticmethod(_get_us_index_universe)
+        get_sp500_symbols = staticmethod(_get_sp500_symbols)
+        collect_snapshots_throttled = staticmethod(_collect_snapshots_throttled)
+        percentile_rank = staticmethod(_percentile_rank)
+        dedupe_rows = staticmethod(_dedupe_rows)
+        sort_rows = staticmethod(_sort_screener_rows)
+        deep_canslim_snapshot = staticmethod(_deep_canslim_snapshot)
+        enrich_result_metrics = staticmethod(_enrich_result_metrics)
+        attach_summaries = staticmethod(_attach_investor_summaries)
 
-    sort_by = req.sort_by.strip().lower()
-    allowed_sort = {"score", "ai_score", "rs", "eps_growth", "revenue_growth", "from_high"}
-    if sort_by not in allowed_sort:
-        sort_by = "score"
-
-    max_results = max(1, min(int(req.max_results), 100))
-    min_market_cap = float(req.min_market_cap)
-    prefilter_count = max(120, min(int(req.prefilter_count), 300))
-    ai_rerank_count = max(20, min(int(req.ai_rerank_count), 100))
-    provider = (req.provider or SCREENER_DEFAULT_PROVIDER).strip().lower()
-    if provider not in ("gemini", "openai", "claude"):
-        provider = SCREENER_DEFAULT_PROVIDER
-
-    try:
-        import yfinance as yf
-    except Exception:
-        raise HTTPException(status_code=500, detail="yfinance 의존성이 설치되지 않았습니다.")
-
-    symbols = sorted(_get_us_index_universe())
-    sp500_symbols = _get_sp500_symbols()
-    if not symbols:
-        raise HTTPException(status_code=500, detail="스크리너 유니버스를 구성하지 못했습니다.")
-
-    benchmark_hist = yf.Ticker("^GSPC").history(period="1y", interval="1d", auto_adjust=False)
-    if benchmark_hist is None or benchmark_hist.empty:
-        raise HTTPException(status_code=500, detail="벤치마크 데이터를 불러오지 못했습니다.")
-    bclose = benchmark_hist["Close"].dropna()
-    if len(bclose) < 120:
-        raise HTTPException(status_code=500, detail="벤치마크 데이터가 충분하지 않습니다.")
-    b_now = _safe_float(bclose.iloc[-1], 0.0)
-    b_6m = _safe_float(bclose.iloc[max(0, len(bclose) - 126)], 0.0)
-    b_12m = _safe_float(bclose.iloc[0], 0.0)
-    bench_6m = ((b_now / b_6m) - 1.0) if b_6m > 0 else 0.0
-    bench_12m = ((b_now / b_12m) - 1.0) if b_12m > 0 else 0.0
-
-    phase1_map = _collect_snapshots_throttled(
-        symbols=symbols,
-        bench_6m=bench_6m,
-        bench_12m=bench_12m,
-        include_info=False,
-        workers=SCREENER_PHASE1_WORKERS,
+    return screener_compute(
+        req,
+        _Deps(),
+        default_provider=SCREENER_DEFAULT_PROVIDER,
+        phase1_workers=SCREENER_PHASE1_WORKERS,
+        phase2_workers=SCREENER_PHASE2_WORKERS,
         batch_size=SCREENER_BATCH_SIZE,
-        pause_sec=SCREENER_BATCH_PAUSE_SEC,
-    )
-    snapshots = list(phase1_map.values())
-
-    if not snapshots:
-        raise HTTPException(status_code=500, detail="종목 데이터를 불러오지 못했습니다.")
-
-    rs_values = [s["rs_raw"] for s in snapshots]
-    ranked = []
-    for s in snapshots:
-        rs_score = _percentile_rank(rs_values, s["rs_raw"])
-        s["rs_score"] = round(rs_score, 1)
-
-        fh = max(0.0, min(100.0, s["from_high_pct"]))
-        eps_n = max(0.0, min(100.0, 50.0 + s["eps_growth"] * 1.2))
-        rev_n = max(0.0, min(100.0, 50.0 + s["revenue_growth"] * 1.0))
-        vol_n = max(0.0, min(100.0, s["vol_ratio"] * 40.0))
-        score = fh * 0.35 + rs_score * 0.35 + eps_n * 0.20 + rev_n * 0.05 + vol_n * 0.05
-        s["score"] = round(score, 1)
-
-        ranked.append(s)
-
-    ranked, _ = _dedupe_rows(ranked)
-    ranked = _sort_screener_rows(ranked, "score")
-
-    # 대유니버스에서는 상위 후보만 info 조회 후 시총 필터 적용
-    candidate_n = max(prefilter_count, max_results * 2, ai_rerank_count * 2)
-    candidates = ranked[:min(candidate_n, len(ranked))]
-    enriched_map = _collect_snapshots_throttled(
-        symbols=[row["symbol"] for row in candidates],
-        bench_6m=bench_6m,
-        bench_12m=bench_12m,
-        include_info=True,
-        workers=SCREENER_PHASE2_WORKERS,
-        batch_size=max(20, SCREENER_BATCH_SIZE // 2),
-        pause_sec=max(0.8, SCREENER_BATCH_PAUSE_SEC),
+        batch_pause_sec=SCREENER_BATCH_PAUSE_SEC,
     )
 
-    filtered = []
-    for row in candidates:
-        symbol = row["symbol"]
-        info_row = enriched_map.get(symbol)
-        if info_row:
-            row["name"] = info_row.get("name", row.get("name", symbol))
-            row["sector"] = info_row.get("sector", row.get("sector", "N/A"))
-            row["market_cap"] = info_row.get("market_cap", row.get("market_cap", 0))
-            row["eps_growth"] = info_row.get("eps_growth", row.get("eps_growth", 0))
-            row["revenue_growth"] = info_row.get("revenue_growth", row.get("revenue_growth", 0))
-        mcap = _safe_float(row.get("market_cap"), 0.0)
-        is_sp500 = symbol in sp500_symbols
-        if mcap < min_market_cap and not is_sp500:
-            continue
-        filtered.append(row)
 
-    filtered, _ = _dedupe_rows(filtered)
-    filtered = _sort_screener_rows(filtered, "score")
-    preselected = filtered[:prefilter_count]
+screener_service = ScreenerService(
+    load_cache=_load_screener_cache,
+    save_cache=_save_screener_cache,
+    refresh_state_snapshot=_refresh_state_snapshot,
+    start_refresh=_start_screener_refresh,
+    build_refresh_scan_request=_build_refresh_scan_request,
+    bootstrap_cache_fast=_bootstrap_screener_cache_fast,
+    sort_rows=_sort_screener_rows,
+    dedupe_rows=_dedupe_rows,
+    is_default_cache_request=_is_default_cache_request,
+    attach_summaries=_attach_investor_summaries,
+    start_summary_backfill=_start_cache_summary_backfill,
+    compute_screener=_compute_screener,
+    default_provider=SCREENER_DEFAULT_PROVIDER,
+    refresh_policy=SCREENER_REFRESH_POLICY,
+)
 
-    deep_n = min(len(preselected), max(max_results, ai_rerank_count))
-    deep_targets = preselected[:deep_n]
-    deep_map = {}
-    if deep_targets:
-        with ThreadPoolExecutor(max_workers=min(4, deep_n)) as ex:
-            futures = {
-                ex.submit(_deep_canslim_snapshot, row["symbol"], provider): row["symbol"]
-                for row in deep_targets
-            }
-            for f in as_completed(futures):
-                symbol = futures[f]
-                try:
-                    detail = f.result()
-                    if detail:
-                        deep_map[symbol] = detail
-                except Exception:
-                    continue
-
-    for row in preselected:
-        deep = deep_map.get(row["symbol"])
-        if deep:
-            row["ai_score"] = int(deep.get("ai_score", row["score"]))
-            row["score"] = row["ai_score"]
-            row["ai_reason"] = deep.get("ai_reason", "")
-            row["name"] = deep.get("name", row.get("name", row["symbol"]))
-            row["sector"] = deep.get("sector", row.get("sector", "N/A"))
-            row["deep"] = deep
-            chart = deep.get("chart", {})
-            row["chart_pattern"] = chart.get("best_pattern")
-            row["pattern_quality"] = chart.get("pattern_quality")
-            row["canslim_rs_rating"] = chart.get("rs_rating")
-        else:
-            row["ai_score"] = int(row.get("score", 0))
-            row["ai_reason"] = "AI 재평가 미적용(정량 점수 사용)"
-
-    preselected = _sort_screener_rows(preselected, sort_by)
-    preselected, dup_removed = _dedupe_rows(preselected)
-    results = preselected[:max_results]
-    results = _enrich_result_metrics(results)
-    analyzed_at = datetime.utcnow().replace(tzinfo=timezone.utc).isoformat()
-
-    return {
-        "market": "US",
-        "universe": "S&P500 + NASDAQ (all)",
-        "universe_size": len(symbols),
-        "scanned": len(snapshots),
-        "matched": len(filtered),
-        "filter_basis": "market_cap_only",
-        "provider": provider,
-        "prefilter_count": prefilter_count,
-        "ai_rerank_count": deep_n,
-        "ai_scored_count": len(deep_map),
-        "duplicates_removed": dup_removed,
-        "analyzed_at": analyzed_at,
-        "results": results,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-
-@app.get("/api/screener/cache/status")
-async def screener_cache_status():
-    cache = _load_screener_cache()
-    if not cache:
-        return {"ready": False, "refresh_policy": SCREENER_REFRESH_POLICY}
-    return {
-        "ready": True,
-        "analyzed_at": cache.get("analyzed_at"),
-        "result_count": len(cache.get("results", [])),
-        "provider": cache.get("provider", SCREENER_DEFAULT_PROVIDER),
-        "refresh_policy": SCREENER_REFRESH_POLICY,
-    }
-
-
-@app.post("/api/screener/refresh")
-async def screener_refresh(req: ScreenerRefreshRequest):
-    token = os.environ.get("SCREENER_REFRESH_TOKEN")
-    if token and req.secret != token:
-        raise HTTPException(status_code=403, detail="refresh token mismatch")
-
-    scan_req = ScreenerRequest(
-        market="US",
-        min_market_cap=req.min_market_cap,
-        sort_by="score",
-        max_results=req.max_results,
-        provider=req.provider,
-        prefilter_count=max(160, req.max_results + 60),
-        ai_rerank_count=min(20, req.max_results),
-        use_cache=False,
-        force_refresh=True,
-    )
-    data = _compute_screener(scan_req)
-    _save_screener_cache(data)
-    data["cache_hit"] = False
-    data["refresh_policy"] = SCREENER_REFRESH_POLICY
-    return data
-
-
-@app.post("/api/screener/scan")
-async def screener_scan(req: ScreenerRequest):
-    """CAN SLIM 스크리너 (기본 요청은 캐시 우선)."""
-    sort_by = (req.sort_by or "score").lower()
-    max_results = max(1, min(int(req.max_results), 100))
-    cache = _load_screener_cache()
-    use_cache = bool(req.use_cache) and not bool(req.force_refresh)
-    default_cache_req = _is_default_cache_request(req)
-
-    if use_cache and cache and default_cache_req:
-        cached_rows = _sort_screener_rows(cache.get("results", []), sort_by)
-        cached_rows, dup_removed = _dedupe_rows(cached_rows)
-        return {
-            **{k: v for k, v in cache.items() if k != "results"},
-            "results": cached_rows[:max_results],
-            "duplicates_removed": dup_removed,
-            "cache_hit": True,
-            "refresh_policy": SCREENER_REFRESH_POLICY,
-            "timestamp": datetime.utcnow().isoformat(),
-        }
-
-    data = _compute_screener(req)
-    data["cache_hit"] = False
-    data["refresh_policy"] = SCREENER_REFRESH_POLICY
-
-    if default_cache_req:
-        _save_screener_cache(data)
-
-    return data
+app.include_router(create_screener_router(screener_service))
 
 
 # ── 종목 검색 API ─────────────────────────────────

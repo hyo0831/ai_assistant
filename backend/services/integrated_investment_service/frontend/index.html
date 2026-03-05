@@ -1108,22 +1108,35 @@
             return `$${cap}`;
         }
 
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function renderScreenerCards(results) {
             const wrap = document.getElementById('sc-cards');
             if (!wrap) return;
 
             wrap.innerHTML = results.map(s => {
                 const sc = getScoreColor(s.score);
+                const summary = String(s.summary || '').trim();
+                const summaryHtml = summary
+                    ? `<div class="text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2 mb-3 leading-relaxed min-h-[44px]">${escapeHtml(summary)}</div>`
+                    : '';
                 return `
                 <div class="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg transition-shadow">
                     <!-- 헤더 -->
                     <div class="flex items-start justify-between mb-3">
                         <div>
                             <div class="flex items-center gap-2 mb-0.5">
-                                <span class="font-black text-slate-900 text-base">${s.symbol}</span>
-                                <span class="text-xs text-slate-400">${s.sector}</span>
+                                <span class="font-black text-slate-900 text-base">${escapeHtml(s.symbol)}</span>
+                                <span class="text-xs text-slate-400">${escapeHtml(s.sector)}</span>
                             </div>
-                            <p class="text-xs text-slate-500 truncate max-w-[160px]">${s.name}</p>
+                            <p class="text-xs text-slate-500 truncate max-w-[160px]">${escapeHtml(s.name)}</p>
                         </div>
                         <div class="${sc.bg} ${sc.text} rounded-xl px-3 py-1 text-center">
                             <div class="text-lg font-black">${s.score}</div>
@@ -1163,6 +1176,8 @@
                             <div class="font-bold text-slate-700">${formatMarketCap(s.market_cap)}</div>
                         </div>
                     </div>
+
+                    ${summaryHtml}
 
                     <!-- 분석 바로가기 -->
                     <div class="grid grid-cols-2 gap-2">
