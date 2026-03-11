@@ -1783,6 +1783,55 @@ async def get_user_votes(session_id: str = "anonymous"):
     return {"votes": votes}
 
 
+# ── 스케줄러 내부 API (Cloud Scheduler → Cloud Run) ──
+_SCHEDULER_SECRET = os.environ.get("SCHEDULER_SECRET", "")
+
+
+def _verify_scheduler_secret(request: Request):
+    """Cloud Scheduler 요청 인증 — X-Scheduler-Secret 헤더 검증."""
+    if not _SCHEDULER_SECRET:
+        return  # 시크릿 미설정 시 개발 환경으로 간주, 통과
+    secret = request.headers.get("X-Scheduler-Secret", "")
+    if secret != _SCHEDULER_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+
+@app.post("/internal/scheduler/refresh-universe")
+async def scheduler_refresh_universe(request: Request):
+    _verify_scheduler_secret(request)
+    import asyncio
+    from .screener.scheduler import job_refresh_universe
+    await asyncio.get_event_loop().run_in_executor(None, job_refresh_universe)
+    return {"ok": True, "job": "refresh_universe"}
+
+
+@app.post("/internal/scheduler/collect-prices")
+async def scheduler_collect_prices(request: Request):
+    _verify_scheduler_secret(request)
+    import asyncio
+    from .screener.scheduler import job_collect_prices
+    await asyncio.get_event_loop().run_in_executor(None, job_collect_prices)
+    return {"ok": True, "job": "collect_prices"}
+
+
+@app.post("/internal/scheduler/score-fundamentals")
+async def scheduler_score_fundamentals(request: Request):
+    _verify_scheduler_secret(request)
+    import asyncio
+    from .screener.scheduler import job_score_fundamentals
+    await asyncio.get_event_loop().run_in_executor(None, job_score_fundamentals)
+    return {"ok": True, "job": "score_fundamentals"}
+
+
+@app.post("/internal/scheduler/publish-cache")
+async def scheduler_publish_cache(request: Request):
+    _verify_scheduler_secret(request)
+    import asyncio
+    from .screener.scheduler import job_publish_cache
+    await asyncio.get_event_loop().run_in_executor(None, job_publish_cache)
+    return {"ok": True, "job": "publish_cache"}
+
+
 # ── 정적 파일 서빙 (프론트엔드) ─────────────────────
 _frontend_candidates = [
     REPO_ROOT / "frontend" / "integrated_ui",  # monorepo root layout
