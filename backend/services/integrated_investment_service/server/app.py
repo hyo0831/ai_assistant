@@ -971,7 +971,7 @@ def _ai_score_candidate(detail: dict, provider: str) -> tuple[int, str]:
             from anthropic import Anthropic
             client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
             resp = client.messages.create(
-                model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+                model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
                 max_tokens=500,
                 system="Return only strict JSON.",
                 messages=[{"role": "user", "content": prompt}],
@@ -1170,7 +1170,7 @@ def _generate_investor_summary(row: dict, provider: str) -> str:
 
         client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         resp = client.messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
             max_tokens=140,
             system="Return only strict JSON.",
             messages=[{"role": "user", "content": user_prompt}],
