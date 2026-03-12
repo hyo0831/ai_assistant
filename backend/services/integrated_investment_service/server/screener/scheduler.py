@@ -28,8 +28,24 @@ PRICE_STAGE_FILE = _BASE / "screener_price_stage.json"
 CACHE_FILE = _BASE / "screener_cache.json"
 
 
+# ── GCS blob 이름 ──────────────────────────────────────────────────────────────
+_BLOB_UNIVERSE    = "screener/universe.json"
+_BLOB_PRICE_STAGE = "screener/price_stage.json"
+_BLOB_CACHE       = "screener/cache.json"
+
+_BLOB_MAP = {
+    UNIVERSE_FILE:    _BLOB_UNIVERSE,
+    PRICE_STAGE_FILE: _BLOB_PRICE_STAGE,
+    CACHE_FILE:       _BLOB_CACHE,
+}
+
+
 # ── 헬퍼 ───────────────────────────────────────────────────────────────────────
 def _load_json(path: Path) -> dict | None:
+    from .gcs import load_json as gcs_load_json
+    blob = _BLOB_MAP.get(path)
+    if blob:
+        return gcs_load_json(blob, path)
     try:
         return json.loads(path.read_text()) if path.exists() else None
     except Exception:
@@ -37,7 +53,12 @@ def _load_json(path: Path) -> dict | None:
 
 
 def _save_json(path: Path, data: dict) -> None:
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    from .gcs import save_json as gcs_save_json
+    blob = _BLOB_MAP.get(path)
+    if blob:
+        gcs_save_json(blob, path, data)
+    else:
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
 
 # ── 잡 함수 ───────────────────────────────────────────────────────────────────

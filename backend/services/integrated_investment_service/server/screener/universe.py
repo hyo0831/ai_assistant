@@ -87,19 +87,16 @@ def refresh_universe() -> dict:
         "all_symbols": all_symbols,
     }
 
-    UNIVERSE_CACHE_PATH.write_text(json.dumps(data, ensure_ascii=False, indent=2))
-    print(f"[universe] 저장 완료: {UNIVERSE_CACHE_PATH} (총 {len(all_symbols)}개)")
+    from .gcs import save_json as gcs_save_json, load_json as gcs_load_json  # noqa: F401
+    gcs_save_json("screener/universe.json", UNIVERSE_CACHE_PATH, data)
+    print(f"[universe] 저장 완료 (총 {len(all_symbols)}개)")
     return data
 
 
 def load_universe() -> dict | None:
-    """저장된 universe.json 로드. 없으면 None 반환."""
-    if not UNIVERSE_CACHE_PATH.exists():
-        return None
-    try:
-        return json.loads(UNIVERSE_CACHE_PATH.read_text())
-    except Exception:
-        return None
+    """저장된 universe.json 로드. GCS 우선, 로컬 폴백."""
+    from .gcs import load_json as gcs_load_json
+    return gcs_load_json("screener/universe.json", UNIVERSE_CACHE_PATH)
 
 
 def get_us_index_universe() -> set[str]:

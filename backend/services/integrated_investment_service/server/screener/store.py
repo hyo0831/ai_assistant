@@ -5,6 +5,10 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+from .gcs import load_json as gcs_load_json, save_json as gcs_save_json
+
+_CACHE_BLOB = "screener/cache.json"
+
 
 class ScreenerCacheStore:
     def __init__(self, cache_file: Path):
@@ -13,30 +17,17 @@ class ScreenerCacheStore:
 
     def load(self) -> Optional[dict]:
         with self._lock:
-            if not self.cache_file.exists():
-                return None
-            try:
-                with open(self.cache_file, "r") as f:
-                    return json.load(f)
-            except Exception:
-                return None
+            data = gcs_load_json(_CACHE_BLOB, self.cache_file)
+            return data
 
     def save(self, payload: dict):
         with self._lock:
-            with open(self.cache_file, "w") as f:
-                json.dump(payload, f, ensure_ascii=False)
+            gcs_save_json(_CACHE_BLOB, self.cache_file, payload)
 
 
 def load_json_file(path: Path) -> Optional[dict]:
-    try:
-        if not path.exists():
-            return None
-        with open(path, "r") as f:
-            return json.load(f)
-    except Exception:
-        return None
+    return gcs_load_json(_CACHE_BLOB, path)
 
 
 def save_json_file(path: Path, payload: dict):
-    with open(path, "w") as f:
-        json.dump(payload, f, ensure_ascii=False)
+    gcs_save_json(_CACHE_BLOB, path, payload)
