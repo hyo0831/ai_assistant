@@ -84,7 +84,7 @@ def job_collect_prices() -> None:
 
 
 def job_score_fundamentals() -> None:
-    """[일 03:00 KST] 상위 120개 종목 펀더멘털 fetch + AI 점수 산출."""
+    """[일 03:00 KST] 상위 300개 종목 펀더멘털 fetch + AI 점수 산출."""
     print(f"[scheduler] job_score_fundamentals 시작 — {datetime.now()}")
     try:
         import time
@@ -98,33 +98,33 @@ def job_score_fundamentals() -> None:
 
         rows: dict = stage["rows"]
 
-        # rs_raw 기준 상위 120개 선정
+        # rs_raw 기준 상위 300개 선정 (UI 표시 종목 충분히 커버)
         sorted_syms = sorted(rows, key=lambda s: rows[s].get("rs_raw", 0.0), reverse=True)
-        top120 = sorted_syms[:120]
+        top300 = sorted_syms[:300]
 
         # 벤치마크 재계산 (전체 평균)
         all_rs = [rows[s]["rs_raw"] for s in rows if rows[s].get("rs_raw") is not None]
         bench_6m = sum(all_rs) / len(all_rs) if all_rs else 0.0
         bench_12m = bench_6m
 
-        print(f"[scheduler] 상위 {len(top120)}개 펀더멘털 fetch 중 (1.5초 간격)...")
+        print(f"[scheduler] 상위 {len(top300)}개 펀더멘털 fetch 중 (1.0초 간격)...")
         enriched: dict[str, dict] = {}
-        for i, sym in enumerate(top120):
+        for i, sym in enumerate(top300):
             try:
                 row = fetch_symbol_snapshot(sym, bench_6m, bench_12m, include_info=True)
                 enriched[sym] = row if row else rows[sym]
             except Exception:
                 enriched[sym] = rows[sym]
-            if i < len(top120) - 1:
-                time.sleep(1.5)
+            if i < len(top300) - 1:
+                time.sleep(1.0)
 
-        for sym in sorted_syms[120:]:
+        for sym in sorted_syms[300:]:
             enriched[sym] = rows[sym]
 
         stage["rows"] = enriched
         stage["fundamentals_at"] = datetime.now(timezone.utc).isoformat()
         _save_json(PRICE_STAGE_FILE, stage)
-        print(f"[scheduler] job_score_fundamentals 완료: top {len(top120)}개 enriched")
+        print(f"[scheduler] job_score_fundamentals 완료: top {len(top300)}개 enriched")
     except Exception:
         print("[scheduler] job_score_fundamentals 실패")
         traceback.print_exc()
