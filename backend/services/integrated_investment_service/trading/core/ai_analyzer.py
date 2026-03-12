@@ -65,7 +65,7 @@ def _generate_with_provider(provider: str, prompt: str, image_path: str = None) 
                 }
             )
         response = client.messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
             max_tokens=4096,
             system=WILLIAM_ONEIL_ENHANCED_PERSONA,
             messages=[{"role": "user", "content": content}],

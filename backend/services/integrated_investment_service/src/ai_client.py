@@ -105,7 +105,7 @@ def analyze_fundamentals_with_ai(ticker: str, prompt_text: str, provider: str = 
                 from anthropic import Anthropic
                 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
                 resp = client.messages.create(
-                    model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+                    model=os.environ.get("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
                     max_tokens=4000,
                     system=WILLIAM_ONEIL_FUNDAMENTAL_PERSONA,
                     messages=[{"role": "user", "content": user_message}],
