@@ -142,6 +142,14 @@ def job_publish_cache() -> None:
         rows_dict: dict = stage["rows"]
         rows_list = sorted(rows_dict.values(), key=lambda r: r.get("rs_raw", 0.0), reverse=True)
 
+        # rs_raw → score (0-99 백분위 변환)
+        n = len(rows_list)
+        for rank, row in enumerate(rows_list):
+            percentile = round((n - 1 - rank) / max(n - 1, 1) * 99)
+            row["score"] = percentile
+            row.setdefault("ai_score", percentile)
+            row.setdefault("rs_score", percentile)
+
         payload = {
             "analyzed_at": datetime.now(timezone.utc).isoformat(),
             "dataset_size": len(rows_list),
