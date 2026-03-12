@@ -106,9 +106,9 @@ def _extract_snapshot_from_batch(
     try:
         # df가 단일 심볼인 경우(chunk size=1)는 MultiIndex가 아닐 수 있음
         if isinstance(df.columns, pd.MultiIndex):
-            if symbol not in df.columns.get_level_values(1):
+            if symbol not in df.columns.get_level_values(0):
                 return None
-            sym_df = df.xs(symbol, axis=1, level=1)
+            sym_df = df.xs(symbol, axis=1, level=0)
         else:
             sym_df = df
 
