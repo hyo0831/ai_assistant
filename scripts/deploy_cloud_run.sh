@@ -47,6 +47,7 @@ if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then ENV_VARS+=("ANTHROPIC_API_KEY=$ANTHRO
 if [[ -n "${GEMINI_MODEL:-}" ]];      then ENV_VARS+=("GEMINI_MODEL=$GEMINI_MODEL"); fi
 if [[ -n "${OPENAI_MODEL:-}" ]];      then ENV_VARS+=("OPENAI_MODEL=$OPENAI_MODEL"); fi
 if [[ -n "${ANTHROPIC_MODEL:-}" ]];   then ENV_VARS+=("ANTHROPIC_MODEL=$ANTHROPIC_MODEL"); fi
+if [[ -n "${GCS_BUCKET:-}" ]];        then ENV_VARS+=("GCS_BUCKET=$GCS_BUCKET"); fi
 
 gcloud run deploy "$SERVICE_NAME" \
   --source . \
