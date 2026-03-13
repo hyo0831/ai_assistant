@@ -134,7 +134,14 @@ class ScreenerService:
             )
             started = self._start_refresh(scan_req)
             if cache:
-                cached_rows = self._sort_rows(cache.get("results", []), sort_by)
+                cached_rows = self._sort_rows(
+                    [
+                        r for r in cache.get("results", [])
+                        if r.get("market_cap", 0) > 0
+                        and (r.get("eps_growth", 0) != 0 or r.get("revenue_growth", 0) != 0)
+                    ],
+                    sort_by,
+                )
                 cached_rows, dup_removed = self._dedupe_rows(cached_rows)
                 return {
                     **{k: v for k, v in cache.items() if k != "results"},
@@ -157,7 +164,13 @@ class ScreenerService:
             }
 
         if use_cache and cache and default_cache_req:
-            cached_rows = self._sort_rows(cache.get("results", []), sort_by)
+            all_cached = cache.get("results", [])
+            all_cached = [
+                r for r in all_cached
+                if r.get("market_cap", 0) > 0
+                and (r.get("eps_growth") is not None or r.get("revenue_growth") is not None)
+            ]
+            cached_rows = self._sort_rows(all_cached, sort_by)
             target_rows = cached_rows[:max_results]
             missing_summary = [r for r in target_rows if not str(r.get("summary", "")).strip()]
             if missing_summary:

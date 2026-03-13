@@ -72,12 +72,10 @@ def fetch_symbol_snapshot(symbol: str, bench_6m: float, bench_12m: float, includ
         or info.get("market_cap"),
         0.0,
     )
-    eps_growth = _safe_float(
-        info.get("earningsQuarterlyGrowth")
-        if info.get("earningsQuarterlyGrowth") is not None else info.get("earningsGrowth"),
-        0.0,
-    ) * 100.0
-    revenue_growth = _safe_float(info.get("revenueGrowth"), 0.0) * 100.0
+    _eps_raw = info.get("earningsQuarterlyGrowth") if info.get("earningsQuarterlyGrowth") is not None else info.get("earningsGrowth")
+    eps_growth = round(_safe_float(_eps_raw, 0.0) * 100.0, 1) if _eps_raw is not None else None
+    _rev_raw = info.get("revenueGrowth")
+    revenue_growth = round(_safe_float(_rev_raw, 0.0) * 100.0, 1) if _rev_raw is not None else None
 
     return {
         "symbol": symbol,
@@ -86,8 +84,8 @@ def fetch_symbol_snapshot(symbol: str, bench_6m: float, bench_12m: float, includ
         "industry": info.get("industry") or "N/A",
         "price": round(price, 2),
         "from_high_pct": round(from_high_pct, 1),
-        "eps_growth": round(eps_growth, 1),
-        "revenue_growth": round(revenue_growth, 1),
+        "eps_growth": eps_growth,
+        "revenue_growth": revenue_growth,
         "vol_ratio": round(vol_ratio, 2),
         "market_cap": int(market_cap) if market_cap > 0 else 0,
         "rs_raw": round(rs_raw, 4),

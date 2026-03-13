@@ -132,7 +132,7 @@ gcloud scheduler jobs create http screener-publish-cache \
   --uri="${SERVICE_URL}/internal/scheduler/publish-cache" \
   --http-method=POST \
   --headers="X-Scheduler-Secret=${SCHEDULER_SECRET}" \
-  --attempt-deadline=120s \
+  --attempt-deadline=600s \
   --time-zone="UTC" \
   --project="$PROJECT_ID" 2>/dev/null || \
 gcloud scheduler jobs update http screener-publish-cache \
@@ -141,7 +141,7 @@ gcloud scheduler jobs update http screener-publish-cache \
   --uri="${SERVICE_URL}/internal/scheduler/publish-cache" \
   --http-method=POST \
   --headers="X-Scheduler-Secret=${SCHEDULER_SECRET}" \
-  --attempt-deadline=120s \
+  --attempt-deadline=600s \
   --time-zone="UTC" \
   --project="$PROJECT_ID"
 

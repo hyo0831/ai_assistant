@@ -151,8 +151,54 @@ def job_score_fundamentals() -> None:
         traceback.print_exc()
 
 
+def _generate_summary(row: dict) -> str:
+    """Gemini로 기업 한 줄 소개 생성. 실패 시 템플릿 반환."""
+    import os
+    import re as _re
+
+    symbol = str(row.get("symbol", "")).upper().strip()
+    name = str(row.get("name", "")).strip()
+    sector = str(row.get("sector", "")).strip()
+    industry = str(row.get("industry", "")).strip()
+    if not symbol:
+        return ""
+
+    prompt = (
+        f"미국 주식 {symbol}({name or symbol})의 핵심 사업을 한국어 한 문장으로 설명하세요.\n"
+        f"sector={sector}, industry={industry}\n"
+        "규칙: 한 문장만, 투자 의견 금지, 45~90자, JSON만 반환.\n"
+        '형식: {"summary":"..."}'
+    )
+
+    gemini_key = os.environ.get("GEMINI_API_KEY", "")
+    if gemini_key:
+        try:
+            from google import genai
+            client = genai.Client(api_key=gemini_key)
+            resp = client.models.generate_content(
+                model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
+                contents=prompt,
+            )
+            text = (resp.text or "").strip()
+            m = _re.search(r'"summary"\s*:\s*"([^"]+)"', text)
+            if m:
+                return m.group(1).strip()
+        except Exception:
+            pass
+
+    label = name or symbol
+    if industry:
+        return f"{label}는 {industry} 분야에서 사업을 운영하는 기업입니다."
+    if sector:
+        return f"{label}는 {sector} 섹터에서 사업을 운영하는 기업입니다."
+    return ""
+
+
 def job_publish_cache() -> None:
     """[월 09:00 KST] screener_price_stage.json → screener_cache.json 확정 (프론트 서빙)."""
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     print(f"[scheduler] job_publish_cache 시작 — {datetime.now()}")
     try:
         stage = _load_json(PRICE_STAGE_FILE)
@@ -161,7 +207,14 @@ def job_publish_cache() -> None:
             return
 
         rows_dict: dict = stage["rows"]
-        rows_list = sorted(rows_dict.values(), key=lambda r: r.get("rs_raw", 0.0), reverse=True)
+        # EPS/매출 성장 데이터가 있는 종목만 포함
+        all_rows = sorted(rows_dict.values(), key=lambda r: r.get("rs_raw", 0.0), reverse=True)
+        rows_list = [
+            r for r in all_rows
+            if r.get("market_cap", 0) > 0
+            and (r.get("eps_growth") is not None or r.get("revenue_growth") is not None)
+        ]
+        print(f"[scheduler] 전체 {len(all_rows)}개 중 펀더멘털 보유 {len(rows_list)}개")
 
         # rs_raw → score (0-99 백분위 변환)
         n = len(rows_list)
@@ -170,6 +223,21 @@ def job_publish_cache() -> None:
             row["score"] = percentile
             row.setdefault("ai_score", percentile)
             row.setdefault("rs_score", percentile)
+
+        # 상위 100개 기업 소개 생성 (병렬, 4 workers)
+        top100 = rows_list[:100]
+        missing = [r for r in top100 if not str(r.get("summary", "")).strip()]
+        if missing:
+            print(f"[scheduler] 기업 소개 생성 중: {len(missing)}개")
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                futures = {ex.submit(_generate_summary, row): row for row in missing}
+                for f in as_completed(futures):
+                    row = futures[f]
+                    try:
+                        row["summary"] = f.result() or ""
+                    except Exception:
+                        row["summary"] = ""
+            print(f"[scheduler] 기업 소개 생성 완료")
 
         payload = {
             "analyzed_at": datetime.now(timezone.utc).isoformat(),

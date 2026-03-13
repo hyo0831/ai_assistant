@@ -1095,8 +1095,8 @@
         }
 
         function formatGrowth(val) {
-            const num = Number(val || 0);
-            if (num === 0) return '데이터 제한';
+            if (val === null || val === undefined) return '데이터 제한';
+            const num = Number(val);
             return `${num > 0 ? '+' : ''}${num}%`;
         }
 
